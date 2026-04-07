@@ -11,8 +11,16 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
 })
 
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { data: null, error: 'RATE_LIMIT', message: 'Demasiadas solicitudes. Espere 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
+
 router.post('/login', loginLimiter, login)
-router.post('/refresh', refresh)
+router.post('/refresh', refreshLimiter, refresh)
 router.post('/logout', verifyToken, logout)
 router.get('/me', verifyToken, me)
 

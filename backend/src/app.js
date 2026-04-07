@@ -29,9 +29,14 @@ app.use('/api/logs-correo',  require('./routes/logsCorreo'))
 
 // Manejo global de errores
 app.use((err, req, res, next) => {
-  console.error(err)
+  const isProd = process.env.NODE_ENV === 'production'
+  if (!isProd) console.error(err)       // stack completo solo en desarrollo
+  else console.error(`[ERROR] ${err.code || 'ERROR'} - ${err.message}`)
   const status = err.status || 500
-  const message = err.message || 'Error interno del servidor'
+  // En producción los errores 5xx no exponen detalles internos al cliente
+  const message = status < 500
+    ? (err.message || 'Error en la solicitud')
+    : (isProd ? 'Error interno del servidor' : (err.message || 'Error interno del servidor'))
   res.status(status).json({ data: null, error: err.code || 'ERROR', message })
 })
 

@@ -1,9 +1,17 @@
 node_modules/
 dist/
 .env
+.env.production
+.env.production.local
+.env.staging
 *.local
 uploads/*
 !uploads/.gitkeep
 .prisma/
 prisma/migrations/*.sql
 *.log
+*.pem
+*.key
+*.crt
+.DS_Store
+coverage/
