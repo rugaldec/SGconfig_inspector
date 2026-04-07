@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.local
+uploads/*
+!uploads/.gitkeep
+.prisma/
+prisma/migrations/*.sql
+*.log

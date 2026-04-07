@@ -1,0 +1,168 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/.prisma/client"
+}
+
+enum Rol {
+  ADMINISTRADOR
+  SUPERVISOR
+  INSPECTOR
+}
+
+enum Criticidad {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum CategoriaHallazgo {
+  SEGURIDAD
+  MANTENIMIENTO
+  OPERACIONES
+}
+
+enum EstadoHallazgo {
+  ABIERTO
+  EN_GESTION
+  PENDIENTE_CIERRE
+  CERRADO
+  RECHAZADO
+}
+
+model Usuario {
+  id                  String     @id @default(uuid())
+  nombre              String
+  email               String     @unique
+  password_hash       String
+  rol                 Rol
+  activo              Boolean    @default(true)
+  fecha_creacion      DateTime   @default(now())
+  fecha_actualizacion DateTime   @updatedAt
+
+  hallazgos   Hallazgo[]   @relation("InspectorHallazgos")
+  comentarios Comentario[]
+  cambios     CambioEstado[]
+
+  @@map("usuarios")
+}
+
+model UbicacionTecnica {
+  id                  String   @id @default(uuid())
+  codigo              String   @unique
+  descripcion         String
+  nivel               Int
+  padre_id            String?
+  padre               UbicacionTecnica?  @relation("Jerarquia", fields: [padre_id], references: [id])
+  hijos               UbicacionTecnica[] @relation("Jerarquia")
+  activo              Boolean  @default(true)
+  fecha_creacion      DateTime @default(now())
+  fecha_actualizacion DateTime @updatedAt
+
+  hallazgos    Hallazgo[]
+  lista_correo ListaCorreo?  @relation("ListasCorreo")
+  logs_correo  LogCorreo[]   @relation("LogsCorreoZona")
+
+  @@index([padre_id])
+  @@index([nivel])
+  @@map("ubicaciones_tecnicas")
+}
+
+model ContadorAviso {
+  anio          Int @id
+  ultimo_numero Int @default(0)
+
+  @@map("contadores_aviso")
+}
+
+model Hallazgo {
+  id                   String         @id @default(uuid())
+  numero_aviso         String         @unique
+  numero_aviso_sap     String?
+  ubicacion_tecnica_id String
+  ubicacion_tecnica    UbicacionTecnica @relation(fields: [ubicacion_tecnica_id], references: [id])
+  descripcion          String
+  criticidad           Criticidad
+  categoria            CategoriaHallazgo
+  foto_url             String
+  foto_despues_url     String?
+  estado               EstadoHallazgo @default(ABIERTO)
+  inspector_id         String
+  inspector            Usuario        @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
+  fecha_creacion       DateTime       @default(now())
+  fecha_actualizacion  DateTime       @updatedAt
+
+  comentarios    Comentario[]
+  cambios_estado CambioEstado[]
+  logs_correo    LogCorreo[]
+
+  @@index([estado])
+  @@index([criticidad])
+  @@index([inspector_id])
+  @@index([ubicacion_tecnica_id])
+  @@index([fecha_creacion])
+  @@map("hallazgos")
+}
+
+model Comentario {
+  id             String   @id @default(uuid())
+  hallazgo_id    String
+  hallazgo       Hallazgo @relation(fields: [hallazgo_id], references: [id])
+  autor_id       String
+  autor          Usuario  @relation(fields: [autor_id], references: [id])
+  texto          String
+  fecha_creacion DateTime @default(now())
+
+  @@index([hallazgo_id])
+  @@map("comentarios")
+}
+
+model ListaCorreo {
+  id                   String           @id @default(uuid())
+  zona_funcional_id    String           @unique
+  zona_funcional       UbicacionTecnica @relation("ListasCorreo", fields: [zona_funcional_id], references: [id])
+  emails               String[]
+  descripcion          String?
+  activo               Boolean          @default(true)
+  fecha_creacion       DateTime         @default(now())
+  fecha_actualizacion  DateTime         @updatedAt
+
+  @@map("listas_correo")
+}
+
+model LogCorreo {
+  id                String            @id @default(uuid())
+  hallazgo_id       String?
+  hallazgo          Hallazgo?         @relation(fields: [hallazgo_id], references: [id], onDelete: SetNull)
+  zona_funcional_id String?
+  zona_funcional    UbicacionTecnica? @relation("LogsCorreoZona", fields: [zona_funcional_id], references: [id], onDelete: SetNull)
+  destinatarios     String[]
+  asunto            String
+  estado            String            // ENVIADO | ERROR
+  error_mensaje     String?
+  fecha_creacion    DateTime          @default(now())
+
+  @@index([fecha_creacion])
+  @@index([hallazgo_id])
+  @@map("logs_correo")
+}
+
+model CambioEstado {
+  id              String          @id @default(uuid())
+  hallazgo_id     String
+  hallazgo        Hallazgo        @relation(fields: [hallazgo_id], references: [id])
+  estado_anterior EstadoHallazgo?
+  estado_nuevo    EstadoHallazgo
+  usuario_id      String
+  usuario         Usuario         @relation(fields: [usuario_id], references: [id])
+  motivo          String?
+  fecha           DateTime        @default(now())
+
+  @@index([hallazgo_id])
+  @@map("cambios_estado")
+}
