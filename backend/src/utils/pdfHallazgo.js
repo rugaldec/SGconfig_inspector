@@ -18,21 +18,29 @@ const CATEGORIA_LABEL = {
   SEGURIDAD: 'Seguridad', MANTENIMIENTO: 'Mantenimiento', OPERACIONES: 'Operaciones',
 }
 
+const MARGIN = 45
+const PAGE_W = 612  // LETTER width en puntos
+
 function sectionTitle(doc, titulo) {
-  doc.moveDown(0.6)
-  doc.fontSize(10).font('Helvetica-Bold').fillColor('#1e3a5f').text(titulo.toUpperCase())
-  doc.moveTo(doc.page.margins.left, doc.y + 2)
-     .lineTo(doc.page.width - doc.page.margins.right, doc.y + 2)
+  doc.moveDown(0.7)
+  doc.fontSize(9).font('Helvetica-Bold').fillColor('#1e3a5f')
+     .text(titulo.toUpperCase(), MARGIN, doc.y)
+  const lineY = doc.y + 3
+  doc.moveTo(MARGIN, lineY)
+     .lineTo(PAGE_W - MARGIN, lineY)
      .strokeColor('#cbd5e1').lineWidth(0.5).stroke()
-  doc.moveDown(0.4)
+  doc.moveDown(0.5)
   doc.font('Helvetica').fillColor('#111827')
 }
 
-function metaRow(doc, label, value) {
-  const y = doc.y
-  doc.fontSize(8).font('Helvetica-Bold').fillColor('#6b7280').text(label, { continued: false })
-  doc.fontSize(10).font('Helvetica').fillColor('#111827').text(value ?? '—')
-  doc.moveDown(0.3)
+// Dibuja una celda etiqueta + valor en posición fija (no depende del cursor Y del doc)
+function metaCell(doc, label, value, x, y, width) {
+  doc.fontSize(7).font('Helvetica-Bold').fillColor('#9ca3af')
+     .text(label, x, y, { width, lineBreak: false })
+  doc.fontSize(10).font('Helvetica').fillColor('#111827')
+     .text(value ?? '—', x, y + 11, { width })
+  // Retorna la Y estimada del fondo de la celda
+  return y + 11 + 14
 }
 
 async function fetchFotoBuffer(fotoUrl) {
@@ -43,7 +51,6 @@ async function fetchFotoBuffer(fotoUrl) {
       if (!res.ok) return null
       return Buffer.from(await res.arrayBuffer())
     }
-    // Local storage
     const filename = path.basename(fotoUrl)
     const fullPath = path.resolve(process.env.UPLOAD_LOCAL_PATH || './uploads', filename)
     if (!fs.existsSync(fullPath)) return null
@@ -53,117 +60,100 @@ async function fetchFotoBuffer(fotoUrl) {
   }
 }
 
+async function insertarFoto(doc, fotoUrl, titulo) {
+  if (!fotoUrl) return
+  sectionTitle(doc, titulo)
+  if (fotoUrl.toLowerCase().endsWith('.webp')) {
+    doc.fontSize(9).fillColor('#6b7280')
+       .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
+    return
+  }
+  const buffer = await fetchFotoBuffer(fotoUrl)
+  if (!buffer) return
+  try {
+    const maxW = PAGE_W - MARGIN * 2
+    const maxH = 220
+    doc.image(buffer, MARGIN, doc.y, { fit: [maxW, maxH] })
+    doc.moveDown(0.4)
+  } catch {
+    doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía.')
+  }
+}
+
 async function generarPdfHallazgo(hallazgo, res) {
-  const doc = new PDFDocument({ margin: 45, size: 'LETTER' })
+  const doc = new PDFDocument({ margin: MARGIN, size: 'LETTER' })
   doc.pipe(res)
 
+  const CONTENT_W = PAGE_W - MARGIN * 2   // 522 pt
+
   // ── ENCABEZADO ──────────────────────────────────────────────────────────────
-  doc.rect(45, 45, doc.page.width - 90, 52).fill('#1e3a5f')
+  const HDR_H = 56
+  doc.rect(MARGIN, MARGIN, CONTENT_W, HDR_H).fill('#1e3a5f')
 
-  doc.fontSize(16).font('Helvetica-Bold').fillColor('#ffffff')
-     .text('SGConfi Inspector', 60, 56, { align: 'left' })
+  doc.fontSize(15).font('Helvetica-Bold').fillColor('#ffffff')
+     .text('SGConfi Inspector', MARGIN + 14, MARGIN + 12, { width: CONTENT_W - 28 })
+  doc.fontSize(8).font('Helvetica').fillColor('#93c5fd')
+     .text('Reporte de Hallazgo Técnico', MARGIN + 14, MARGIN + 31)
 
-  doc.fontSize(8.5).font('Helvetica').fillColor('#93c5fd')
-     .text('Reporte de Hallazgo Técnico', 60, 76)
-
-  doc.fontSize(9).font('Helvetica').fillColor('#e2e8f0')
+  // Fecha generación — derecha del encabezado
+  doc.fontSize(8).font('Helvetica').fillColor('#e2e8f0')
      .text(
        `Generado: ${new Date().toLocaleString('es-CL')}`,
-       0, 62,
-       { align: 'right', width: doc.page.width - 90 }
+       MARGIN + 14, MARGIN + 20,
+       { width: CONTENT_W - 28, align: 'right' }
      )
 
-  doc.moveDown(3.2)
+  doc.y = MARGIN + HDR_H + 14
 
-  // ── NÚMERO DE AVISO ──────────────────────────────────────────────────────────
-  doc.fontSize(18).font('Helvetica-Bold').fillColor('#1e3a5f')
-     .text(hallazgo.numero_aviso, { align: 'center' })
+  // ── BLOQUE NÚMERO DE AVISO (izquierda) ──────────────────────────────────────
+  doc.fontSize(20).font('Helvetica-Bold').fillColor('#1e3a5f')
+     .text(hallazgo.numero_aviso, MARGIN, doc.y)
 
   if (hallazgo.numero_aviso_sap) {
+    doc.moveDown(0.1)
     doc.fontSize(10).font('Helvetica').fillColor('#3b82f6')
-       .text(`SAP: ${hallazgo.numero_aviso_sap}`, { align: 'center' })
+       .text(`SAP: ${hallazgo.numero_aviso_sap}`, MARGIN, doc.y)
   }
-  doc.moveDown(0.4)
+  doc.moveDown(0.5)
 
-  // ── GRID DE METADATOS (2 columnas) ───────────────────────────────────────────
+  // ── INFORMACIÓN GENERAL — tabla 3 columnas ───────────────────────────────────
   sectionTitle(doc, 'Información General')
 
-  const colW = (doc.page.width - 90) / 2 - 8
-  const colX1 = 45
-  const colX2 = 45 + colW + 16
-  let rowY = doc.y
+  const COL = Math.floor(CONTENT_W / 3) - 6    // ancho de cada columna
+  const GAP = 9
+  const col1X = MARGIN
+  const col2X = MARGIN + COL + GAP
+  const col3X = MARGIN + (COL + GAP) * 2
+  const gridY = doc.y
 
-  function metaCell(label, value, x, y) {
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#6b7280').text(label, x, y, { width: colW })
-    doc.fontSize(10).font('Helvetica').fillColor('#111827').text(value ?? '—', x, doc.y, { width: colW })
-    return doc.y
-  }
+  const bE = metaCell(doc, 'ESTADO',        ESTADO_LABEL[hallazgo.estado] ?? hallazgo.estado,             col1X, gridY, COL)
+  const bC = metaCell(doc, 'CRITICIDAD',    CRITICIDAD_LABEL[hallazgo.criticidad] ?? hallazgo.criticidad, col2X, gridY, COL)
+  const bK = metaCell(doc, 'CATEGORÍA',     CATEGORIA_LABEL[hallazgo.categoria] ?? hallazgo.categoria,    col3X, gridY, COL)
 
-  const y1a = metaCell('ESTADO', ESTADO_LABEL[hallazgo.estado] ?? hallazgo.estado, colX1, rowY)
-  const y1b = metaCell('CRITICIDAD', CRITICIDAD_LABEL[hallazgo.criticidad] ?? hallazgo.criticidad, colX2, rowY)
-  rowY = Math.max(y1a, y1b) + 8
+  const row2Y = Math.max(bE, bC, bK) + 6
 
-  const y2a = metaCell('CATEGORÍA', CATEGORIA_LABEL[hallazgo.categoria] ?? hallazgo.categoria, colX1, rowY)
-  const y2b = metaCell('INSPECTOR', hallazgo.inspector?.nombre ?? '—', colX2, rowY)
-  rowY = Math.max(y2a, y2b) + 8
+  const bI  = metaCell(doc, 'INSPECTOR',    hallazgo.inspector?.nombre ?? '—',                            col1X, row2Y, COL)
+  const bF  = metaCell(doc, 'FECHA REGISTRO', new Date(hallazgo.fecha_creacion).toLocaleString('es-CL'),  col2X, row2Y, COL * 2 + GAP)
 
-  metaCell('FECHA REGISTRO', new Date(hallazgo.fecha_creacion).toLocaleString('es-CL'), colX1, rowY)
-  doc.y = rowY + 24
+  doc.y = Math.max(bI, bF) + 4
 
   // ── UBICACIÓN ────────────────────────────────────────────────────────────────
   sectionTitle(doc, 'Ubicación Técnica')
   doc.fontSize(10).font('Helvetica').fillColor('#111827')
-     .text(`${hallazgo.ubicacion_tecnica.codigo} — ${hallazgo.ubicacion_tecnica.descripcion}`)
+     .text(
+       `${hallazgo.ubicacion_tecnica.codigo} — ${hallazgo.ubicacion_tecnica.descripcion}`,
+       MARGIN, doc.y, { width: CONTENT_W }
+     )
   doc.moveDown(0.2)
 
   // ── DESCRIPCIÓN ──────────────────────────────────────────────────────────────
   sectionTitle(doc, 'Descripción del Hallazgo')
   doc.fontSize(10).font('Helvetica').fillColor('#111827')
-     .text(hallazgo.descripcion, { lineGap: 3 })
+     .text(hallazgo.descripcion, MARGIN, doc.y, { width: CONTENT_W, lineGap: 3 })
 
-  // ── FOTO DE APERTURA ─────────────────────────────────────────────────────────
-  const isWebp = (hallazgo.foto_url ?? '').toLowerCase().endsWith('.webp')
-  if (!isWebp) {
-    const fotoBuffer = await fetchFotoBuffer(hallazgo.foto_url)
-    if (fotoBuffer) {
-      sectionTitle(doc, 'Fotografía de Apertura')
-      const maxW = doc.page.width - 90
-      const maxH = 220
-      try {
-        doc.image(fotoBuffer, { fit: [maxW, maxH], align: 'center' })
-        doc.moveDown(0.4)
-      } catch {
-        doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía.')
-      }
-    }
-  } else {
-    sectionTitle(doc, 'Fotografía de Apertura')
-    doc.fontSize(9).fillColor('#6b7280')
-       .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
-  }
-
-  // ── FOTO DE CIERRE ────────────────────────────────────────────────────────────
-  if (hallazgo.foto_despues_url) {
-    const isWebpCierre = hallazgo.foto_despues_url.toLowerCase().endsWith('.webp')
-    if (!isWebpCierre) {
-      const fotoCierreBuffer = await fetchFotoBuffer(hallazgo.foto_despues_url)
-      if (fotoCierreBuffer) {
-        sectionTitle(doc, 'Fotografía de Cierre')
-        const maxW = doc.page.width - 90
-        const maxH = 220
-        try {
-          doc.image(fotoCierreBuffer, { fit: [maxW, maxH], align: 'center' })
-          doc.moveDown(0.4)
-        } catch {
-          doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía de cierre.')
-        }
-      }
-    } else {
-      sectionTitle(doc, 'Fotografía de Cierre')
-      doc.fontSize(9).fillColor('#6b7280')
-         .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
-    }
-  }
+  // ── FOTOGRAFÍAS ───────────────────────────────────────────────────────────────
+  await insertarFoto(doc, hallazgo.foto_url, 'Fotografía de Apertura')
+  await insertarFoto(doc, hallazgo.foto_despues_url, 'Fotografía de Cierre')
 
   // ── HISTORIAL DE ESTADOS ─────────────────────────────────────────────────────
   if (hallazgo.cambios_estado?.length) {
@@ -172,11 +162,12 @@ async function generarPdfHallazgo(hallazgo, res) {
       const desde = c.estado_anterior ? `${ESTADO_LABEL[c.estado_anterior]} → ` : ''
       const hasta = ESTADO_LABEL[c.estado_nuevo] ?? c.estado_nuevo
       doc.fontSize(9).font('Helvetica-Bold').fillColor('#111827')
-         .text(`${desde}${hasta}`, { continued: true })
+         .text(`${desde}${hasta}`, MARGIN, doc.y, { continued: true, width: CONTENT_W })
          .font('Helvetica').fillColor('#6b7280')
          .text(`   ${c.usuario?.nombre ?? '—'} · ${new Date(c.fecha).toLocaleString('es-CL')}`)
       if (c.motivo) {
-        doc.fontSize(9).fillColor('#374151').text(`  "${c.motivo}"`, { indent: 12 })
+        doc.fontSize(9).font('Helvetica').fillColor('#374151')
+           .text(`"${c.motivo}"`, MARGIN + 12, doc.y, { width: CONTENT_W - 12 })
       }
       doc.moveDown(0.3)
     })
@@ -187,20 +178,23 @@ async function generarPdfHallazgo(hallazgo, res) {
     sectionTitle(doc, 'Comentarios')
     hallazgo.comentarios.forEach((c) => {
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#6b7280')
-         .text(`${c.autor?.nombre ?? '—'} · ${new Date(c.fecha_creacion).toLocaleString('es-CL')}`)
+         .text(
+           `${c.autor?.nombre ?? '—'} · ${new Date(c.fecha_creacion).toLocaleString('es-CL')}`,
+           MARGIN, doc.y, { width: CONTENT_W }
+         )
       doc.fontSize(10).font('Helvetica').fillColor('#111827')
-         .text(c.texto, { lineGap: 2 })
+         .text(c.texto, MARGIN, doc.y, { width: CONTENT_W, lineGap: 2 })
       doc.moveDown(0.5)
     })
   }
 
   // ── PIE DE PÁGINA ─────────────────────────────────────────────────────────────
-  doc.fontSize(7).fillColor('#9ca3af')
+  doc.fontSize(7).font('Helvetica').fillColor('#9ca3af')
      .text(
        `SGConfi Inspector — Documento generado automáticamente — ${new Date().toLocaleDateString('es-CL')}`,
-       45,
-       doc.page.height - 35,
-       { align: 'center', width: doc.page.width - 90 }
+       MARGIN,
+       doc.page.height - 32,
+       { align: 'center', width: CONTENT_W }
      )
 
   doc.end()
