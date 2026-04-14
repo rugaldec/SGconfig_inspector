@@ -73,8 +73,9 @@ async function insertarFoto(doc, fotoUrl, titulo) {
   try {
     const maxW = PAGE_W - MARGIN * 2
     const maxH = 220
-    doc.image(buffer, MARGIN, doc.y, { fit: [maxW, maxH] })
-    doc.moveDown(0.4)
+    // Sin x,y explícitos: PDFKit usa el cursor actual y lo avanza correctamente
+    doc.image(buffer, { fit: [maxW, maxH], align: 'center' })
+    doc.moveDown(0.6)
   } catch {
     doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía.')
   }
