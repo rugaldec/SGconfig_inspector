@@ -28,15 +28,40 @@ function setRefreshCookie(res, token) {
   })
 }
 
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for']
+  return forwarded ? forwarded.split(',')[0].trim() : (req.ip || null)
+}
+
+async function registrarAcceso({ usuario_id, email, ip, exitoso, motivo }) {
+  prisma.logAcceso.create({ data: { usuario_id, email, ip, exitoso, motivo } }).catch(() => {})
+}
+
 async function login(req, res) {
   const { email, password } = req.body
+  const ip = getClientIp(req)
+
   if (!email || !password) return fail(res, 'DATOS_INCOMPLETOS', 'Email y contraseña requeridos')
 
   const user = await prisma.usuario.findUnique({ where: { email } })
-  if (!user || !user.activo) return fail(res, 'CREDENCIALES_INVALIDAS', 'Credenciales incorrectas', 401)
+
+  if (!user) {
+    await registrarAcceso({ email, ip, exitoso: false, motivo: 'Usuario no encontrado' })
+    return fail(res, 'CREDENCIALES_INVALIDAS', 'Credenciales incorrectas', 401)
+  }
+
+  if (!user.activo) {
+    await registrarAcceso({ usuario_id: user.id, email, ip, exitoso: false, motivo: 'Cuenta inactiva' })
+    return fail(res, 'CREDENCIALES_INVALIDAS', 'Credenciales incorrectas', 401)
+  }
 
   const ok_ = await bcrypt.compare(password, user.password_hash)
-  if (!ok_) return fail(res, 'CREDENCIALES_INVALIDAS', 'Credenciales incorrectas', 401)
+  if (!ok_) {
+    await registrarAcceso({ usuario_id: user.id, email, ip, exitoso: false, motivo: 'Contraseña incorrecta' })
+    return fail(res, 'CREDENCIALES_INVALIDAS', 'Credenciales incorrectas', 401)
+  }
+
+  await registrarAcceso({ usuario_id: user.id, email, ip, exitoso: true })
 
   const accessToken = signAccess(user)
   const refreshToken = signRefresh(user)

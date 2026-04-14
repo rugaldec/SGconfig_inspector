@@ -9,10 +9,17 @@ import Input from '../../../shared/components/ui/Input'
 import Spinner from '../../../shared/components/ui/Spinner'
 import { UserPlus } from 'lucide-react'
 
+const PASSWORD_HINT = 'Mínimo 8 caracteres, una mayúscula, un número y un carácter especial (ej: !, @, #)'
+
 const crearSchema = z.object({
   nombre: z.string().min(2, 'Mínimo 2 caracteres'),
   email: z.string().email('Email inválido'),
-  password: z.string().min(8, 'Mínimo 8 caracteres'),
+  password: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
+    .regex(/\d/, 'Debe contener al menos un número')
+    .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (ej: !, @, #)'),
   rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
 })
 
@@ -134,7 +141,7 @@ export default function UsuariosPage() {
               label="Contraseña"
               type="password"
               error={errors.password?.message}
-              hint="Mínimo 8 caracteres"
+              hint={PASSWORD_HINT}
               {...register('password')}
             />
           )}

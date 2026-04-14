@@ -2,6 +2,15 @@ const bcrypt = require('bcrypt')
 const prisma = require('../db/client')
 const { ok, fail } = require('../utils/responseHelper')
 
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+const PASSWORD_MENSAJE = 'La contraseña debe tener al menos 8 caracteres, una mayúscula, un número y un carácter especial'
+
+function validarPassword(password) {
+  if (!password) return 'La contraseña es obligatoria'
+  if (!PASSWORD_REGEX.test(password)) return PASSWORD_MENSAJE
+  return null
+}
+
 const SELECT_USUARIO = { id: true, nombre: true, email: true, rol: true, activo: true, fecha_creacion: true }
 
 async function listar(req, res) {
@@ -18,6 +27,9 @@ async function uno(req, res) {
 async function crear(req, res) {
   const { nombre, email, password, rol } = req.body
   if (!nombre || !email || !password || !rol) return fail(res, 'DATOS_INCOMPLETOS', 'Todos los campos son obligatorios')
+
+  const errorPwd = validarPassword(password)
+  if (errorPwd) return fail(res, 'PASSWORD_INVALIDO', errorPwd)
 
   const existe = await prisma.usuario.findUnique({ where: { email } })
   if (existe) return fail(res, 'EMAIL_DUPLICADO', 'El email ya está registrado', 409)
@@ -55,7 +67,8 @@ async function actualizar(req, res) {
 
 async function resetPassword(req, res) {
   const { password } = req.body
-  if (!password || password.length < 8) return fail(res, 'PASSWORD_INVALIDO', 'La contraseña debe tener al menos 8 caracteres')
+  const errorPwd = validarPassword(password)
+  if (errorPwd) return fail(res, 'PASSWORD_INVALIDO', errorPwd)
 
   const user = await prisma.usuario.findUnique({ where: { id: req.params.id } })
   if (!user) return fail(res, 'NOT_FOUND', 'Usuario no encontrado', 404)

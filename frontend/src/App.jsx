@@ -16,6 +16,7 @@ const UsuariosPage       = lazy(() => import('./features/usuarios/pages/Usuarios
 const UbicacionesPage    = lazy(() => import('./features/ubicaciones/pages/UbicacionesPage'))
 const ListasCorreoPage   = lazy(() => import('./features/listasCorreo/pages/ListasCorreoPage'))
 const LogsCorreoPage     = lazy(() => import('./features/logsCorreo/pages/LogsCorreoPage'))
+const LogsAccesoPage    = lazy(() => import('./features/logsAcceso/pages/LogsAccesoPage'))
 
 function PageLoader() {
   return (
@@ -69,6 +70,7 @@ export default function App() {
                 <Route path="/admin/ubicaciones"   element={<UbicacionesPage />} />
                 <Route path="/admin/listas-correo"  element={<ListasCorreoPage />} />
                 <Route path="/admin/logs-correo"    element={<LogsCorreoPage />} />
+                <Route path="/admin/logs-acceso"    element={<LogsAccesoPage />} />
               </Route>
             </Route>
 
