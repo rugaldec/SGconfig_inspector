@@ -99,6 +99,11 @@ async function listar(req, res) {
         inspector: { select: { id: true, nombre: true } },
         ubicacion_tecnica: { select: { codigo: true, descripcion: true } },
         _count: { select: { cambios_estado: true, comentarios: true } },
+        comentarios: {
+          orderBy: { fecha_creacion: 'desc' },
+          take: 1,
+          include: { autor: { select: { nombre: true } } },
+        },
       },
       orderBy: { [sort]: order },
       skip,

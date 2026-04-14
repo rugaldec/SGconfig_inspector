@@ -8,6 +8,29 @@ import Spinner from '../../../shared/components/ui/Spinner'
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios'
 import { Download, MessageSquare, GitBranch } from 'lucide-react'
 
+function UltimoComentarioTooltip({ hallazgo }) {
+  const count = hallazgo._count?.comentarios ?? 0
+  const ultimo = hallazgo.comentarios?.[0]
+
+  return (
+    <span className="relative group flex items-center gap-1 text-xs text-gray-500 cursor-default">
+      <MessageSquare size={12} className="text-emerald-400" />
+      {count}
+      {ultimo && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50 w-56 pointer-events-none">
+          <div className="bg-gray-900 text-white text-xs rounded-xl p-3 shadow-lg">
+            <p className="font-medium text-gray-300 mb-1">
+              {ultimo.autor.nombre} · {new Date(ultimo.fecha_creacion ?? Date.now()).toLocaleDateString('es-CL')}
+            </p>
+            <p className="line-clamp-3 leading-relaxed">{ultimo.texto}</p>
+          </div>
+          <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+        </div>
+      )}
+    </span>
+  )
+}
+
 const ESTADOS = ['ABIERTO', 'EN_GESTION', 'PENDIENTE_CIERRE', 'CERRADO', 'RECHAZADO']
 const CRITICIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
 
@@ -125,10 +148,7 @@ export default function HallazgosPage() {
                           <GitBranch size={12} className="text-blue-400" />
                           {h._count?.cambios_estado ?? 0}
                         </span>
-                        <span className="flex items-center gap-1 text-xs text-gray-500" title="Comentarios">
-                          <MessageSquare size={12} className="text-emerald-400" />
-                          {h._count?.comentarios ?? 0}
-                        </span>
+                        <UltimoComentarioTooltip hallazgo={h} />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
