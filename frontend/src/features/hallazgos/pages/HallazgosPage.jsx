@@ -79,7 +79,7 @@ export default function HallazgosPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  {['Aviso', 'Ubicación', 'Estado', 'Criticidad', 'Inspector', 'Fecha'].map((h) => (
+                  {['Foto', 'Aviso', 'Ubicación', 'Estado', 'Criticidad', 'Inspector', 'Fecha'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       {h}
                     </th>
@@ -93,6 +93,12 @@ export default function HallazgosPage() {
                     onClick={() => navigate(`/supervisor/hallazgos/${h.id}`)}
                     className="hover:bg-blue-50 cursor-pointer transition-colors"
                   >
+                    <td className="px-2 py-1.5">
+                      {h.foto_url
+                        ? <img src={h.foto_url} alt="foto" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+                        : <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xs">—</div>
+                      }
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{h.numero_aviso}</td>
                     <td className="px-4 py-3 text-gray-800 font-medium">{h.ubicacion_tecnica.codigo}</td>
                     <td className="px-4 py-3"><EstadoBadge estado={h.estado} /></td>
