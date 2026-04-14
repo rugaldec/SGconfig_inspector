@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useUsuarios, useCrearUsuario, useActualizarUsuario } from '../hooks/useUsuarios'
+import { useUsuarios, useCrearUsuario, useActualizarUsuario, useResetPassword } from '../hooks/useUsuarios'
 import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
 import Spinner from '../../../shared/components/ui/Spinner'
-import { UserPlus } from 'lucide-react'
+import { UserPlus, KeyRound } from 'lucide-react'
 
 const PASSWORD_HINT = 'Mínimo 8 caracteres, una mayúscula, un número y un carácter especial (ej: !, @, #)'
 
@@ -30,6 +30,19 @@ const editarSchema = z.object({
   activo: z.boolean(),
 })
 
+const passwordSchema = z.object({
+  password: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener al menos una letra mayúscula')
+    .regex(/\d/, 'Debe contener al menos un número')
+    .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (ej: !, @, #)'),
+  confirmar: z.string(),
+}).refine(d => d.password === d.confirmar, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmar'],
+})
+
 const ROL_BADGE = {
   ADMINISTRADOR: 'bg-purple-100 text-purple-700',
   SUPERVISOR:    'bg-blue-100 text-blue-700',
@@ -37,22 +50,34 @@ const ROL_BADGE = {
 }
 
 export default function UsuariosPage() {
-  const [modal, setModal] = useState(false)
-  const [editando, setEditando] = useState(null)
+  const [modal, setModal]             = useState(false)
+  const [editando, setEditando]       = useState(null)
+  const [modalPwd, setModalPwd]       = useState(false)
+  const [usuarioPwd, setUsuarioPwd]   = useState(null)
+  const [pwdOk, setPwdOk]            = useState(false)
 
   const { data: usuarios, isLoading } = useUsuarios()
-  const crear = useCrearUsuario()
+  const crear      = useCrearUsuario()
   const actualizar = useActualizarUsuario()
+  const resetPwd   = useResetPassword()
 
+  // ── Formulario crear / editar ────────────────────────────────────────────────
   const schema = editando ? editarSchema : crearSchema
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   })
 
+  // ── Formulario contraseña ────────────────────────────────────────────────────
+  const {
+    register: regPwd,
+    handleSubmit: handlePwd,
+    reset: resetPwdForm,
+    formState: { errors: errPwd },
+  } = useForm({ resolver: zodResolver(passwordSchema) })
+
   function abrirNuevo() {
     setEditando(null)
     reset({ nombre: '', email: '', password: '', rol: 'INSPECTOR' })
-    modal || setModal(true)
     setModal(true)
   }
 
@@ -68,12 +93,31 @@ export default function UsuariosPage() {
     actualizar.reset()
   }
 
+  function abrirCambiarPwd(u) {
+    setUsuarioPwd(u)
+    setPwdOk(false)
+    resetPwdForm()
+    resetPwd.reset()
+    setModalPwd(true)
+  }
+
+  function cerrarPwd() {
+    setModalPwd(false)
+  }
+
   function onSubmit(data) {
     if (editando) {
       actualizar.mutate({ id: editando.id, datos: data }, { onSuccess: cerrar })
     } else {
       crear.mutate(data, { onSuccess: cerrar })
     }
+  }
+
+  function onSubmitPwd({ password }) {
+    resetPwd.mutate(
+      { id: usuarioPwd.id, password },
+      { onSuccess: () => setPwdOk(true) }
+    )
   }
 
   const mutError = editando
@@ -118,12 +162,20 @@ export default function UsuariosPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button
-                    onClick={() => abrirEditar(u)}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Editar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => abrirEditar(u)}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => abrirCambiarPwd(u)}
+                      className="flex items-center gap-1 text-xs text-amber-600 hover:underline"
+                    >
+                      <KeyRound size={11} /> Contraseña
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -131,6 +183,7 @@ export default function UsuariosPage() {
         </table>
       </div>
 
+      {/* ── Modal crear / editar ──────────────────────────────────────────────── */}
       <Modal open={modal} onClose={cerrar} title={editando ? 'Editar Usuario' : 'Nuevo Usuario'}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Input label="Nombre" error={errors.nombre?.message} {...register('nombre')} />
@@ -175,6 +228,46 @@ export default function UsuariosPage() {
             {editando ? 'Guardar Cambios' : 'Crear Usuario'}
           </Button>
         </form>
+      </Modal>
+
+      {/* ── Modal cambiar contraseña ──────────────────────────────────────────── */}
+      <Modal open={modalPwd} onClose={cerrarPwd} title="Cambiar Contraseña">
+        {pwdOk ? (
+          <div className="py-6 text-center space-y-3">
+            <div className="text-4xl">✅</div>
+            <p className="text-sm font-medium text-gray-700">
+              Contraseña actualizada correctamente para <span className="font-semibold">{usuarioPwd?.nombre}</span>
+            </p>
+            <Button size="full" onClick={cerrarPwd}>Cerrar</Button>
+          </div>
+        ) : (
+          <form onSubmit={handlePwd(onSubmitPwd)} className="space-y-4">
+            <p className="text-sm text-gray-500">
+              Cambiando contraseña de <span className="font-semibold text-gray-700">{usuarioPwd?.nombre}</span>
+            </p>
+            <Input
+              label="Nueva contraseña"
+              type="password"
+              error={errPwd.password?.message}
+              hint={PASSWORD_HINT}
+              {...regPwd('password')}
+            />
+            <Input
+              label="Confirmar contraseña"
+              type="password"
+              error={errPwd.confirmar?.message}
+              {...regPwd('confirmar')}
+            />
+            {resetPwd.error && (
+              <p className="text-sm text-red-500">
+                {resetPwd.error?.response?.data?.message ?? 'Error al cambiar contraseña'}
+              </p>
+            )}
+            <Button type="submit" size="full" loading={resetPwd.isPending}>
+              Actualizar Contraseña
+            </Button>
+          </form>
+        )}
       </Modal>
     </div>
   )

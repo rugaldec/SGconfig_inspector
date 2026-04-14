@@ -23,3 +23,9 @@ export function useActualizarUsuario() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
   })
 }
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: ({ id, password }) => usuariosApi.resetPassword(id, password),
+  })
+}
