@@ -5,6 +5,7 @@ import EstadoBadge from '../components/EstadoBadge'
 import CriticidadBadge from '../components/CriticidadBadge'
 import HallazgoCard from '../components/HallazgoCard'
 import Spinner from '../../../shared/components/ui/Spinner'
+import { useUsuarios } from '../../usuarios/hooks/useUsuarios'
 import { Download } from 'lucide-react'
 
 const ESTADOS = ['ABIERTO', 'EN_GESTION', 'PENDIENTE_CIERRE', 'CERRADO', 'RECHAZADO']
@@ -16,7 +17,10 @@ export default function HallazgosPage() {
 
   const estado = params.get('estado') || ''
   const criticidad = params.get('criticidad') || ''
+  const inspector_id = params.get('inspector_id') || ''
   const page = Number(params.get('page') || 1)
+
+  const { data: usuarios } = useUsuarios()
 
   function setFiltro(key, val) {
     const p = new URLSearchParams(params)
@@ -28,6 +32,7 @@ export default function HallazgosPage() {
   const { data, isLoading } = useHallazgos({
     ...(estado && { estado }),
     ...(criticidad && { criticidad }),
+    ...(inspector_id && { inspector_id }),
     page,
     limit: 20,
   })
@@ -66,6 +71,16 @@ export default function HallazgosPage() {
           <option value="">Toda criticidad</option>
           {CRITICIDADES.map((c) => (
             <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        <select
+          value={inspector_id}
+          onChange={(e) => setFiltro('inspector_id', e.target.value)}
+          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">Todo inspector</option>
+          {(usuarios ?? []).map((u) => (
+            <option key={u.id} value={u.id}>{u.nombre}</option>
           ))}
         </select>
       </div>
