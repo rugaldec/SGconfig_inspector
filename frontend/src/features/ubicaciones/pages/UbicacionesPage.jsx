@@ -6,9 +6,11 @@ import {
   useActualizarUbicacion,
   useEliminarUbicacion,
   useImportarUbicaciones,
+  useUbicacionesFiltradas,
 } from '../hooks/useUbicaciones'
 import { ubicacionesApi } from '../api'
 import ArbolUbicaciones from '../components/ArbolUbicaciones'
+import FiltrosUbicacion from '../components/FiltrosUbicacion'
 import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
@@ -35,7 +37,10 @@ export default function UbicacionesPage() {
   const [importResult, setImportResult] = useState(null)
   const [exportando, setExportando] = useState(false)
 
+  const [filtros, setFiltros] = useState({})
+
   const { data: arbol, isLoading } = useArbolUbicaciones()
+  const { plantas, areas, activos, componentes, nodosFiltrados } = useUbicacionesFiltradas(filtros)
   const crear = useCrearUbicacion()
   const actualizar = useActualizarUbicacion()
   const eliminar = useEliminarUbicacion()
@@ -172,9 +177,18 @@ export default function UbicacionesPage() {
         </div>
       )}
 
+      <FiltrosUbicacion
+        filtros={filtros}
+        onChange={setFiltros}
+        plantas={plantas}
+        areas={areas}
+        activos={activos}
+        componentes={componentes}
+      />
+
       <div className="bg-white rounded-xl border p-3">
         <ArbolUbicaciones
-          nodos={arbol ?? []}
+          nodos={nodosFiltrados ?? arbol ?? []}
           onAgregar={abrirAgregar}
           onEditar={abrirEditar}
           onEliminar={abrirConfirmEliminar}

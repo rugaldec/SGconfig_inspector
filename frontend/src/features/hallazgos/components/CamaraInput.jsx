@@ -1,15 +1,25 @@
 import { useRef, useState } from 'react'
 import { Camera, X } from 'lucide-react'
+import Spinner from '../../../shared/components/ui/Spinner'
+import { comprimirImagen } from '../../../shared/utils/comprimirImagen'
 
 export default function CamaraInput({ onChange, error }) {
   const inputRef = useRef(null)
   const [preview, setPreview] = useState(null)
+  const [comprimiendo, setComprimiendo] = useState(false)
 
-  function handleChange(e) {
+  async function handleChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
-    setPreview(URL.createObjectURL(file))
-    onChange(file)
+
+    setComprimiendo(true)
+    try {
+      const comprimido = await comprimirImagen(file)
+      setPreview(URL.createObjectURL(comprimido))
+      onChange(comprimido)
+    } finally {
+      setComprimiendo(false)
+    }
   }
 
   function limpiar() {
@@ -20,7 +30,12 @@ export default function CamaraInput({ onChange, error }) {
 
   return (
     <div>
-      {preview ? (
+      {comprimiendo ? (
+        <div className="w-full h-40 border-2 border-dashed border-blue-300 bg-blue-50 rounded-xl flex flex-col items-center justify-center gap-2 text-blue-400">
+          <Spinner size="md" />
+          <span className="text-sm">Procesando imagen...</span>
+        </div>
+      ) : preview ? (
         <div className="relative rounded-xl overflow-hidden border border-gray-200">
           <img src={preview} alt="Vista previa" className="w-full max-h-64 object-cover" />
           <button
@@ -46,7 +61,7 @@ export default function CamaraInput({ onChange, error }) {
         >
           <Camera size={36} />
           <span className="text-sm font-medium">Tomar / Seleccionar foto</span>
-          <span className="text-xs opacity-70">JPEG, PNG o WebP · máx 10 MB</span>
+          <span className="text-xs opacity-70">Se comprime automáticamente antes de enviar</span>
         </button>
       )}
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
