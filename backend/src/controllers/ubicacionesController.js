@@ -18,11 +18,55 @@ function construirArbol(nodes) {
 }
 
 async function arbol(req, res) {
-  const nodes = await prisma.ubicacionTecnica.findMany({
-    where: { activo: true },
-    orderBy: [{ nivel: 'asc' }, { codigo: 'asc' }],
+  const [nodes, conteos] = await Promise.all([
+    prisma.ubicacionTecnica.findMany({
+      where: { activo: true },
+      orderBy: [{ nivel: 'asc' }, { codigo: 'asc' }],
+    }),
+    // Conteo de hallazgos por ubicación (solo nivel 4, activos y totales)
+    prisma.hallazgo.groupBy({
+      by: ['ubicacion_tecnica_id'],
+      _count: { id: true },
+    }),
+  ])
+
+  // Mapa de conteos totales y activos por ubicacion_id
+  const conteosMap = {}
+  const conteosActivos = await prisma.hallazgo.groupBy({
+    by: ['ubicacion_tecnica_id'],
+    where: { estado: { notIn: ['CERRADO', 'RECHAZADO'] } },
+    _count: { id: true },
   })
-  return ok(res, construirArbol(nodes))
+  for (const c of conteos) conteosMap[c.ubicacion_tecnica_id] = { total: c._count.id, activos: 0 }
+  for (const c of conteosActivos) {
+    if (conteosMap[c.ubicacion_tecnica_id]) conteosMap[c.ubicacion_tecnica_id].activos = c._count.id
+    else conteosMap[c.ubicacion_tecnica_id] = { total: 0, activos: c._count.id }
+  }
+
+  // Agregar conteos a cada nodo
+  const nodesConConteo = nodes.map(n => ({
+    ...n,
+    _hallazgos: conteosMap[n.id] ?? null,
+  }))
+
+  // Propagar conteos hacia arriba en el árbol construido
+  const arbolData = construirArbol(nodesConConteo)
+
+  function propagarConteos(nodo) {
+    if (!nodo.hijos?.length) return nodo._hallazgos ?? { total: 0, activos: 0 }
+    let total = nodo._hallazgos?.total ?? 0
+    let activos = nodo._hallazgos?.activos ?? 0
+    for (const hijo of nodo.hijos) {
+      const sub = propagarConteos(hijo)
+      total += sub.total
+      activos += sub.activos
+    }
+    nodo._hallazgos = { total, activos }
+    return { total, activos }
+  }
+  for (const raiz of arbolData) propagarConteos(raiz)
+
+  return ok(res, arbolData)
 }
 
 async function buscar(req, res) {

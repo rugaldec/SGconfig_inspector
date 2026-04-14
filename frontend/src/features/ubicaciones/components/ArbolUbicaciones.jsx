@@ -4,6 +4,28 @@ import { ChevronRight, ChevronDown, Trash2 } from 'lucide-react'
 const NIVEL_LABEL = { 1: 'Planta', 2: 'Área', 3: 'Activo', 4: 'Componente' }
 const INDENT_PX = { 1: 'pl-0', 2: 'pl-6', 3: 'pl-12', 4: 'pl-[72px]' }
 
+function BadgeHallazgos({ hallazgos }) {
+  if (!hallazgos || hallazgos.total === 0) return null
+  return (
+    <div className="flex items-center gap-1 flex-shrink-0">
+      <span
+        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium"
+        title={`${hallazgos.total} hallazgos totales`}
+      >
+        {hallazgos.total} total
+      </span>
+      {hallazgos.activos > 0 && (
+        <span
+          className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium"
+          title={`${hallazgos.activos} hallazgos activos (no cerrados/rechazados)`}
+        >
+          {hallazgos.activos} activos
+        </span>
+      )}
+    </div>
+  )
+}
+
 function Nodo({ node, onAgregar, onEditar, onEliminar }) {
   const [expandido, setExpandido] = useState(node.nivel <= 2)
   const tieneHijos = node.hijos?.length > 0
@@ -31,6 +53,8 @@ function Nodo({ node, onAgregar, onEditar, onEliminar }) {
             Inactivo
           </span>
         )}
+
+        <BadgeHallazgos hallazgos={node._hallazgos} />
 
         <div className="hidden group-hover:flex gap-1 flex-shrink-0">
           {node.nivel < 4 && (
