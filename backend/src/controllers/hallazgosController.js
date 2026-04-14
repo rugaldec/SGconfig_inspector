@@ -95,7 +95,11 @@ async function listar(req, res) {
     prisma.hallazgo.count({ where }),
     prisma.hallazgo.findMany({
       where,
-      include: { inspector: { select: { id: true, nombre: true } }, ubicacion_tecnica: { select: { codigo: true, descripcion: true } } },
+      include: {
+        inspector: { select: { id: true, nombre: true } },
+        ubicacion_tecnica: { select: { codigo: true, descripcion: true } },
+        _count: { select: { cambios_estado: true, comentarios: true } },
+      },
       orderBy: { [sort]: order },
       skip,
       take: Number(limit),

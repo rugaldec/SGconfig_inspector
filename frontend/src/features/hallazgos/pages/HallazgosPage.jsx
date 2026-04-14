@@ -6,7 +6,7 @@ import CriticidadBadge from '../components/CriticidadBadge'
 import HallazgoCard from '../components/HallazgoCard'
 import Spinner from '../../../shared/components/ui/Spinner'
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios'
-import { Download } from 'lucide-react'
+import { Download, MessageSquare, GitBranch } from 'lucide-react'
 
 const ESTADOS = ['ABIERTO', 'EN_GESTION', 'PENDIENTE_CIERRE', 'CERRADO', 'RECHAZADO']
 const CRITICIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
@@ -94,7 +94,7 @@ export default function HallazgosPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  {['Foto', 'Aviso', 'Ubicación', 'Estado', 'Criticidad', 'Inspector', 'Fecha'].map((h) => (
+                  {['Foto', 'Aviso', 'Ubicación', 'Estado', 'Criticidad', 'Inspector', 'Actividad', 'Fecha'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       {h}
                     </th>
@@ -119,6 +119,18 @@ export default function HallazgosPage() {
                     <td className="px-4 py-3"><EstadoBadge estado={h.estado} /></td>
                     <td className="px-4 py-3"><CriticidadBadge criticidad={h.criticidad} /></td>
                     <td className="px-4 py-3 text-gray-600">{h.inspector.nombre}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs text-gray-500" title="Cambios de estado">
+                          <GitBranch size={12} className="text-blue-400" />
+                          {h._count?.cambios_estado ?? 0}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-gray-500" title="Comentarios">
+                          <MessageSquare size={12} className="text-emerald-400" />
+                          {h._count?.comentarios ?? 0}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(h.fecha_creacion).toLocaleDateString('es-CL')}
                     </td>
