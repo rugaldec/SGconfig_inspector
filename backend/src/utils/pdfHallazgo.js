@@ -121,12 +121,12 @@ async function generarPdfHallazgo(hallazgo, res) {
   doc.fontSize(10).font('Helvetica').fillColor('#111827')
      .text(hallazgo.descripcion, { lineGap: 3 })
 
-  // ── FOTO ─────────────────────────────────────────────────────────────────────
+  // ── FOTO DE APERTURA ─────────────────────────────────────────────────────────
   const isWebp = (hallazgo.foto_url ?? '').toLowerCase().endsWith('.webp')
   if (!isWebp) {
     const fotoBuffer = await fetchFotoBuffer(hallazgo.foto_url)
     if (fotoBuffer) {
-      sectionTitle(doc, 'Fotografía')
+      sectionTitle(doc, 'Fotografía de Apertura')
       const maxW = doc.page.width - 90
       const maxH = 220
       try {
@@ -137,9 +137,32 @@ async function generarPdfHallazgo(hallazgo, res) {
       }
     }
   } else {
-    sectionTitle(doc, 'Fotografía')
+    sectionTitle(doc, 'Fotografía de Apertura')
     doc.fontSize(9).fillColor('#6b7280')
        .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
+  }
+
+  // ── FOTO DE CIERRE ────────────────────────────────────────────────────────────
+  if (hallazgo.foto_despues_url) {
+    const isWebpCierre = hallazgo.foto_despues_url.toLowerCase().endsWith('.webp')
+    if (!isWebpCierre) {
+      const fotoCierreBuffer = await fetchFotoBuffer(hallazgo.foto_despues_url)
+      if (fotoCierreBuffer) {
+        sectionTitle(doc, 'Fotografía de Cierre')
+        const maxW = doc.page.width - 90
+        const maxH = 220
+        try {
+          doc.image(fotoCierreBuffer, { fit: [maxW, maxH], align: 'center' })
+          doc.moveDown(0.4)
+        } catch {
+          doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía de cierre.')
+        }
+      }
+    } else {
+      sectionTitle(doc, 'Fotografía de Cierre')
+      doc.fontSize(9).fillColor('#6b7280')
+         .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
+    }
   }
 
   // ── HISTORIAL DE ESTADOS ─────────────────────────────────────────────────────
