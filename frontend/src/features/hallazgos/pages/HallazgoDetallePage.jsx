@@ -160,6 +160,27 @@ function SeccionSap({ hallazgo, mutAsignarSap }) {
   )
 }
 
+const ROL_CONFIG = {
+  ADMINISTRADOR: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Admin' },
+  SUPERVISOR:    { bg: 'bg-blue-100',   text: 'text-blue-700',   label: 'Supervisor' },
+  INSPECTOR:     { bg: 'bg-emerald-100',text: 'text-emerald-700',label: 'Inspector' },
+}
+
+function AvatarComentario({ nombre, rol }) {
+  const cfg = ROL_CONFIG[rol] ?? { bg: 'bg-gray-100', text: 'text-gray-600', label: rol }
+  const iniciales = nombre
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+  return (
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${cfg.bg} ${cfg.text}`}>
+      {iniciales}
+    </div>
+  )
+}
+
 function SeccionComentarios({ hallazgo, mutComentario }) {
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(comentarioSchema),
@@ -171,30 +192,67 @@ function SeccionComentarios({ hallazgo, mutComentario }) {
 
   return (
     <div className="bg-white rounded-xl border p-4">
-      <h2 className="font-semibold text-gray-700 mb-3">Comentarios</h2>
-      <div className="space-y-3 mb-4">
-        {hallazgo.comentarios.map((c) => (
-          <div key={c.id} className="bg-gray-50 rounded-xl p-3">
-            <p className="text-sm text-gray-800">{c.texto}</p>
-            <p className="text-xs text-gray-400 mt-1">
-              {c.autor.nombre} · {new Date(c.fecha_creacion).toLocaleString('es-CL')}
-            </p>
-          </div>
-        ))}
-        {!hallazgo.comentarios.length && (
-          <p className="text-sm text-gray-400">Sin comentarios aún</p>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-semibold text-gray-700">Historial de Comentarios</h2>
+        {hallazgo.comentarios.length > 0 && (
+          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+            {hallazgo.comentarios.length} {hallazgo.comentarios.length === 1 ? 'comentario' : 'comentarios'}
+          </span>
         )}
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex gap-2">
-        <input
-          placeholder="Agregar comentario..."
-          className={`flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.texto ? 'border-red-400' : ''}`}
-          {...register('texto')}
-        />
-        <Button type="submit" size="sm" loading={mutComentario.isPending}>
-          Enviar
-        </Button>
-      </form>
+
+      {/* Lista de comentarios */}
+      <div className="space-y-4 mb-5">
+        {hallazgo.comentarios.length === 0 && (
+          <p className="text-sm text-gray-400 text-center py-4">Sin comentarios aún</p>
+        )}
+        {hallazgo.comentarios.map((c, i) => {
+          const cfg = ROL_CONFIG[c.autor.rol] ?? { bg: 'bg-gray-100', text: 'text-gray-600', label: c.autor.rol }
+          return (
+            <div key={c.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <AvatarComentario nombre={c.autor.nombre} rol={c.autor.rol} />
+                {i < hallazgo.comentarios.length - 1 && (
+                  <div className="w-px flex-1 bg-gray-100 mt-2" />
+                )}
+              </div>
+              <div className="flex-1 pb-2">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-gray-800">{c.autor.nombre}</span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>
+                    {cfg.label}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {new Date(c.fecha_creacion).toLocaleString('es-CL')}
+                  </span>
+                </div>
+                <div className="bg-gray-50 rounded-xl rounded-tl-none px-3 py-2">
+                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{c.texto}</p>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Formulario nuevo comentario */}
+      <div className="border-t pt-4">
+        <p className="text-xs font-medium text-gray-500 mb-2">Nuevo comentario</p>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
+          <textarea
+            rows={2}
+            placeholder="Escribe un comentario..."
+            className={`w-full border rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.texto ? 'border-red-400' : ''}`}
+            {...register('texto')}
+          />
+          {errors.texto && <p className="text-xs text-red-500">{errors.texto.message}</p>}
+          <div className="flex justify-end">
+            <Button type="submit" size="sm" loading={mutComentario.isPending}>
+              Enviar comentario
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
