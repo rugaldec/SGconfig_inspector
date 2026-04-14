@@ -84,11 +84,6 @@ frontend/src/
 │   │   │   └── useUsuarios.js
 │   │   └── api.js
 │   │
-│   ├── dashboard/             # Vista resumen para supervisor/admin
-│   │   ├── DashboardPage.jsx
-│   │   └── components/
-│   │       └── ContadorEstado.jsx
-│   │
 │   ├── listasCorreo/          # Gestión de listas de distribución por Zona Funcional (admin)
 │   │   ├── api.js
 │   │   ├── hooks/
@@ -96,12 +91,26 @@ frontend/src/
 │   │   └── pages/
 │   │       └── ListasCorreoPage.jsx
 │   │
-│   └── logsCorreo/            # Historial de correos enviados (admin)
-│       ├── api.js
+│   ├── logsCorreo/            # Historial de correos enviados (admin)
+│   │   ├── api.js
+│   │   ├── hooks/
+│   │   │   └── useLogsCorreo.js
+│   │   └── pages/
+│   │       └── LogsCorreoPage.jsx
+│   │
+│   ├── logsAcceso/            # Auditoría de intentos de login (admin)
+│   │   ├── api.js
+│   │   ├── hooks/
+│   │   │   └── useLogsAcceso.js
+│   │   └── pages/
+│   │       └── LogsAccesoPage.jsx
+│   │
+│   └── dashboard/             # Vista resumen supervisor/admin
+│       ├── DashboardPage.jsx
 │       ├── hooks/
-│       │   └── useLogsCorreo.js
-│       └── pages/
-│           └── LogsCorreoPage.jsx
+│       │   └── useStats.js
+│       └── components/
+│           └── ContadorEstado.jsx
 │
 ├── shared/                    # Solo lo que se usa en 2+ features
 │   ├── components/
@@ -221,6 +230,8 @@ Las query keys siguen un patrón consistente para que `invalidateQueries` sea pr
 ['usuarios']                         // lista usuarios
 ['listas-correo']                    // listas de distribución
 ['logs-correo', params]              // historial de correos enviados
+['logs-acceso', params]              // auditoría de intentos de login
+['stats', filtros]                   // estadísticas del dashboard
 ```
 
 ---
@@ -403,6 +414,8 @@ Todas las respuestas siguen la estructura:
 - **Códigos de ubicación únicos** — crear y importar rechazan duplicados
 - Cada cambio de estado queda registrado en `CambioEstado` con usuario, fecha y motivo
 - **Categoría obligatoria** al crear hallazgo: SEGURIDAD, MANTENIMIENTO u OPERACIONES
+- **Política de contraseñas:** mínimo 8 caracteres + 1 mayúscula + 1 número + 1 carácter especial — validado en backend y frontend
+- **Todo intento de login queda auditado** en `LogAcceso` con IP, email, resultado y motivo — nunca bloquea el login
 
 ---
 
@@ -541,3 +554,44 @@ Antes de considerar una feature lista, verificar:
 - [ ] El backend tiene ruta + controller nuevos (sin modificar los existentes)
 - [ ] Si hay nueva tabla: migración Prisma generada
 - [ ] La feature funciona en viewport móvil (375px) y desktop
+
+---
+
+## Historial de Features Implementadas
+
+### Sesión 1 — 2026-04-06
+- Jerarquía SAP corregida: Planta → Área (Zona Funcional) → Activo → Componente
+- UbicacionSelector rediseñado: 4 dropdowns en cascada (reemplazó búsqueda de texto)
+- Hallazgos solo en nivel 4 — validación backend + frontend
+- Thumbnails de foto en MisHallazgosPage (Inspector)
+- Filtro por estado como pills (client-side)
+- Export CSV de ubicaciones (`GET /api/ubicaciones/exportar`)
+- Rechazo de duplicados en creación e importación de ubicaciones
+
+### Sesión 2 — 2026-04-14
+- **Deploy en VPS** (198.71.52.209, Ubuntu 24.04, PM2 + Nginx)
+- **Compresión de imágenes** antes de subida — `shared/utils/comprimirImagen.js`
+  - Usa FileReader + Image (compatible Safari iOS), max 2000px, JPEG 0.82
+- **Filtros de 4 niveles** en página de Ubicaciones Técnicas
+- **Thumbnail** en columna foto de HallazgosPage (supervisor)
+- **Filtro por inspector** en HallazgosPage
+- **Historial de comentarios** rediseñado con avatares y timeline en HallazgoDetallePage
+- **Columna actividad** en HallazgosPage: conteo de cambios de estado y comentarios
+- **Tooltip** con último comentario al hover sobre columna actividad
+- **Dashboard** rediseñado con endpoint `/api/stats`:
+  - Filtros por planta y área
+  - Contadores por estado (clickeables)
+  - Barras por criticidad y categoría
+  - Ranking inspectores (top 5 con medallas)
+  - Ranking áreas con más hallazgos (top 5)
+- **Badges de hallazgos** en árbol de Ubicaciones (total + activos, propagados recursivamente)
+- **Log de accesos** (`/admin/logs-acceso`):
+  - Modelo `LogAcceso` — tabla `logs_acceso`
+  - Registra IP, email, éxito/fallo y motivo en cada intento de login
+  - Página admin con filtro y paginación
+- **Validación de contraseña robusta**: regex min 8 + mayúscula + número + especial (backend + frontend Zod)
+
+### Notas de deploy críticas
+- Siempre ejecutar `prisma generate` después de `migrate deploy` cuando el schema cambió
+- El path del schema siempre: `--schema=src/db/schema.prisma` (no `scr`)
+- Nginx necesita `X-Forwarded-For` en proxy_set_header para que LogAcceso capture la IP real
