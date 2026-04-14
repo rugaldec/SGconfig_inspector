@@ -448,6 +448,86 @@ Dos dropdowns encadenados: primero Planta (nivel 1), luego Zona Funcional (nivel
 
 ---
 
+## Infraestructura VPS — Producción
+
+- **Proveedor:** VPS Ubuntu 24.04
+- **IP:** `198.71.52.209`
+- **Usuario deploy:** `deploy`
+- **PostgreSQL** corre en puerto `5432` (instalación nativa, sin Docker)
+- **Backend** corre con PM2, punto de entrada: `src/server.js` (no `src/app.js`)
+- **Frontend** servido por Nginx desde `/home/deploy/app/frontend/dist/`
+- **Nginx** hace proxy de `/api/` → `localhost:3001`
+
+### Variables de entorno en producción (`backend/.env`)
+
+```env
+DATABASE_URL=postgresql://sgconfi:<PASSWORD>@localhost:5432/sgconfi
+JWT_SECRET=<secreto_largo>
+REFRESH_TOKEN_SECRET=<secreto_diferente>   ← nombre exacto que lee el código
+PORT=3001
+NODE_ENV=production
+FRONTEND_URL=http://198.71.52.209
+```
+
+> **IMPORTANTE:** La variable de refresh token se llama `REFRESH_TOKEN_SECRET`, no `JWT_REFRESH_SECRET`. Esto está definido en `src/controllers/authController.js`.
+
+### Variable de entorno en producción (`frontend/.env.production`)
+
+```env
+VITE_API_URL=http://198.71.52.209/api
+```
+
+### Comandos Prisma en producción
+
+El schema no está en la ruta por defecto — siempre especificar la ruta:
+
+```bash
+npx prisma migrate deploy --schema=src/db/schema.prisma
+npx prisma generate --schema=src/db/schema.prisma
+```
+
+### Permisos Nginx
+
+Nginx necesita acceso de ejecución en el directorio home del usuario `deploy`:
+
+```bash
+chmod o+x /home/deploy
+chmod o+x /home/deploy/app
+chmod o+x /home/deploy/app/frontend
+chmod -R o+r /home/deploy/app/frontend/dist
+```
+
+### Comandos PM2 en producción
+
+```bash
+# Iniciar (usar server.js, no app.js)
+pm2 start src/server.js --name sgconfi-backend
+
+# Reiniciar aplicando nuevas variables de entorno
+pm2 restart sgconfi-backend --update-env
+
+# Ver logs
+pm2 logs sgconfi-backend --lines 50
+```
+
+### Actualizar la app en el VPS
+
+```bash
+cd ~/app
+git pull origin main
+
+# Si cambiaron archivos de backend
+cd backend && npm install
+npx prisma migrate deploy --schema=src/db/schema.prisma
+pm2 restart sgconfi-backend --update-env
+
+# Si cambiaron archivos de frontend
+cd ../frontend && npm install
+npm run build
+```
+
+---
+
 ## Checklist para Cada Nueva Feature
 
 Antes de considerar una feature lista, verificar:
