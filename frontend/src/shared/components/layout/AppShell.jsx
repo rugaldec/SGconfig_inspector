@@ -3,26 +3,29 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../features/auth/useAuth'
 import {
   LayoutDashboard, ClipboardList, PlusCircle,
-  Users, MapPin, Mail, History, LogOut, Menu, X, Shield,
+  Users, MapPin, Mail, History, LogOut, Menu, X, Shield, ClipboardCheck, Wrench,
 } from 'lucide-react'
 
 const NAV_INSPECTOR = [
   { to: '/inspector/hallazgos', icon: ClipboardList,  label: 'Mis Hallazgos' },
+  { to: '/inspector/pautas',    icon: ClipboardCheck, label: 'Mis Pautas' },
   { to: '/inspector/nuevo',     icon: PlusCircle,     label: 'Nuevo Hallazgo' },
 ]
 
 const NAV_SUP = [
   { to: '/supervisor/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/supervisor/hallazgos',  icon: ClipboardList,   label: 'Hallazgos' },
+  { to: '/supervisor/pautas',     icon: ClipboardCheck,  label: 'Pautas' },
   { to: '/supervisor/nuevo',      icon: PlusCircle,      label: 'Nuevo Hallazgo' },
 ]
 
 const NAV_ADMIN_EXTRA = [
-  { to: '/admin/usuarios',      icon: Users,   label: 'Usuarios' },
-  { to: '/admin/ubicaciones',   icon: MapPin,  label: 'Ubicaciones' },
-  { to: '/admin/listas-correo', icon: Mail,    label: 'Listas Correo' },
-  { to: '/admin/logs-correo',   icon: History, label: 'Historial Correos' },
-  { to: '/admin/logs-acceso',   icon: Shield,  label: 'Log de Accesos' },
+  { to: '/admin/usuarios',      icon: Users,        label: 'Usuarios' },
+  { to: '/admin/disciplinas',   icon: Wrench,       label: 'Disciplinas' },
+  { to: '/admin/ubicaciones',   icon: MapPin,       label: 'Ubicaciones' },
+  { to: '/admin/listas-correo', icon: Mail,         label: 'Listas Correo' },
+  { to: '/admin/logs-correo',   icon: History,      label: 'Historial Correos' },
+  { to: '/admin/logs-acceso',   icon: Shield,       label: 'Log de Accesos' },
 ]
 
 function navLinks(rol) {

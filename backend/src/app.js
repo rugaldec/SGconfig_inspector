@@ -28,6 +28,9 @@ app.use('/api/listas-correo', require('./routes/listasCorreo'))
 app.use('/api/logs-correo',  require('./routes/logsCorreo'))
 app.use('/api/stats',        require('./routes/stats'))
 app.use('/api/logs-acceso', require('./routes/logsAcceso'))
+app.use('/api/disciplinas', require('./routes/disciplinas'))
+app.use('/api/pautas', require('./routes/pautas'))
+app.use('/api/ejecuciones', require('./routes/ejecuciones'))
 
 // Manejo global de errores
 app.use((err, req, res, next) => {

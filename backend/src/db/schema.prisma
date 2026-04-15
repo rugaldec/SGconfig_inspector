@@ -35,21 +35,46 @@ enum EstadoHallazgo {
   RECHAZADO
 }
 
+enum EstadoPauta {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADA
+}
+
+model Disciplina {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  usuarios    Usuario[]
+  pautas      PautaInspeccion[]
+
+  @@map("disciplinas")
+}
+
 model Usuario {
-  id                  String     @id @default(uuid())
+  id                  String      @id @default(uuid())
   nombre              String
-  email               String     @unique
+  email               String      @unique
   password_hash       String
   rol                 Rol
-  activo              Boolean    @default(true)
-  fecha_creacion      DateTime   @default(now())
-  fecha_actualizacion DateTime   @updatedAt
+  activo              Boolean     @default(true)
+  disciplina_id       String?
+  disciplina          Disciplina? @relation(fields: [disciplina_id], references: [id])
+  fecha_creacion      DateTime    @default(now())
+  fecha_actualizacion DateTime    @updatedAt
 
-  hallazgos    Hallazgo[]    @relation("InspectorHallazgos")
-  comentarios  Comentario[]
-  cambios      CambioEstado[]
-  logs_acceso  LogAcceso[]
+  hallazgos           Hallazgo[]       @relation("InspectorHallazgos")
+  comentarios         Comentario[]
+  cambios             CambioEstado[]
+  logs_acceso         LogAcceso[]
+  pautas_creadas      PautaInspeccion[] @relation("PautasCreadas")
+  ejecuciones_creadas EjecucionPauta[] @relation("EjecucionesCreadas")
+  items_ejecutados    ItemEjecucion[]  @relation("ItemsEjecutados")
 
+  @@index([disciplina_id])
   @@map("usuarios")
 }
 
@@ -80,9 +105,12 @@ model UbicacionTecnica {
   fecha_creacion      DateTime @default(now())
   fecha_actualizacion DateTime @updatedAt
 
-  hallazgos    Hallazgo[]
-  lista_correo ListaCorreo?  @relation("ListasCorreo")
-  logs_correo  LogCorreo[]   @relation("LogsCorreoZona")
+  hallazgos         Hallazgo[]
+  lista_correo      ListaCorreo?      @relation("ListasCorreo")
+  logs_correo       LogCorreo[]       @relation("LogsCorreoZona")
+  pautas_inspeccion PautaInspeccion[] @relation("PautaZonaFuncional")
+  pautas_ubts       PautaUBT[]        @relation("PautaUBTUbicacion")
+  items_ejecucion   ItemEjecucion[]   @relation("ItemEjecucionUbicacion")
 
   @@index([padre_id])
   @@index([nivel])
@@ -97,25 +125,26 @@ model ContadorAviso {
 }
 
 model Hallazgo {
-  id                   String         @id @default(uuid())
-  numero_aviso         String         @unique
+  id                   String            @id @default(uuid())
+  numero_aviso         String            @unique
   numero_aviso_sap     String?
   ubicacion_tecnica_id String
-  ubicacion_tecnica    UbicacionTecnica @relation(fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica    UbicacionTecnica  @relation(fields: [ubicacion_tecnica_id], references: [id])
   descripcion          String
   criticidad           Criticidad
   categoria            CategoriaHallazgo
   foto_url             String
   foto_despues_url     String?
-  estado               EstadoHallazgo @default(ABIERTO)
+  estado               EstadoHallazgo    @default(ABIERTO)
   inspector_id         String
-  inspector            Usuario        @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
-  fecha_creacion       DateTime       @default(now())
-  fecha_actualizacion  DateTime       @updatedAt
+  inspector            Usuario           @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
+  fecha_creacion       DateTime          @default(now())
+  fecha_actualizacion  DateTime          @updatedAt
 
   comentarios    Comentario[]
   cambios_estado CambioEstado[]
   logs_correo    LogCorreo[]
+  item_ejecucion ItemEjecucion?
 
   @@index([estado])
   @@index([criticidad])
@@ -181,4 +210,77 @@ model CambioEstado {
 
   @@index([hallazgo_id])
   @@map("cambios_estado")
+}
+
+model PautaInspeccion {
+  id                String           @id @default(uuid())
+  nombre            String
+  descripcion       String?
+  disciplina        Disciplina       @relation(fields: [disciplina_id], references: [id])
+  disciplina_id     String
+  zona_funcional    UbicacionTecnica @relation("PautaZonaFuncional", fields: [zona_funcional_id], references: [id])
+  zona_funcional_id String
+  activo            Boolean          @default(true)
+  creado_por        Usuario          @relation("PautasCreadas", fields: [created_by], references: [id])
+  created_by        String
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+
+  ubts        PautaUBT[]
+  ejecuciones EjecucionPauta[]
+
+  @@index([disciplina_id])
+  @@index([zona_funcional_id])
+  @@map("pautas_inspeccion")
+}
+
+model PautaUBT {
+  id                   String           @id @default(uuid())
+  pauta                PautaInspeccion  @relation(fields: [pauta_id], references: [id], onDelete: Cascade)
+  pauta_id             String
+  ubicacion_tecnica    UbicacionTecnica @relation("PautaUBTUbicacion", fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica_id String
+  orden                Int
+
+  @@unique([pauta_id, ubicacion_tecnica_id])
+  @@index([pauta_id])
+  @@map("pautas_ubts")
+}
+
+model EjecucionPauta {
+  id               String          @id @default(uuid())
+  pauta            PautaInspeccion @relation(fields: [pauta_id], references: [id])
+  pauta_id         String
+  fecha_inicio     DateTime
+  fecha_fin        DateTime
+  estado           EstadoPauta     @default(PENDIENTE)
+  fecha_completada DateTime?
+  creado_por       Usuario         @relation("EjecucionesCreadas", fields: [created_by], references: [id])
+  created_by       String
+  created_at       DateTime        @default(now())
+
+  items ItemEjecucion[]
+
+  @@index([pauta_id])
+  @@index([estado])
+  @@map("ejecuciones_pauta")
+}
+
+model ItemEjecucion {
+  id                   String           @id @default(uuid())
+  ejecucion            EjecucionPauta   @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+  ejecucion_id         String
+  ubicacion_tecnica    UbicacionTecnica @relation("ItemEjecucionUbicacion", fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica_id String
+  orden                Int
+  inspeccionado        Boolean          @default(false)
+  ejecutado_por        Usuario?         @relation("ItemsEjecutados", fields: [ejecutado_por_id], references: [id])
+  ejecutado_por_id     String?
+  fecha_inspeccion     DateTime?
+  observacion          String?
+  hallazgo             Hallazgo?        @relation(fields: [hallazgo_id], references: [id])
+  hallazgo_id          String?          @unique
+
+  @@index([ejecucion_id])
+  @@map("items_ejecucion")
 }

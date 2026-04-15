@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useUsuarios, useCrearUsuario, useActualizarUsuario, useResetPassword } from '../hooks/useUsuarios'
+import { useDisciplinas } from '../../disciplinas/hooks/useDisciplinas'
 import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
@@ -21,6 +22,7 @@ const crearSchema = z.object({
     .regex(/\d/, 'Debe contener al menos un número')
     .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (ej: !, @, #)'),
   rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
+  disciplina_id: z.string().optional(),
 })
 
 const editarSchema = z.object({
@@ -28,6 +30,7 @@ const editarSchema = z.object({
   email: z.string().email('Email inválido'),
   rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
   activo: z.boolean(),
+  disciplina_id: z.string().optional(),
 })
 
 const passwordSchema = z.object({
@@ -57,6 +60,7 @@ export default function UsuariosPage() {
   const [pwdOk, setPwdOk]            = useState(false)
 
   const { data: usuarios, isLoading } = useUsuarios()
+  const { data: disciplinas } = useDisciplinas()
   const crear      = useCrearUsuario()
   const actualizar = useActualizarUsuario()
   const resetPwd   = useResetPassword()
@@ -77,13 +81,13 @@ export default function UsuariosPage() {
 
   function abrirNuevo() {
     setEditando(null)
-    reset({ nombre: '', email: '', password: '', rol: 'INSPECTOR' })
+    reset({ nombre: '', email: '', password: '', rol: 'INSPECTOR', disciplina_id: '' })
     setModal(true)
   }
 
   function abrirEditar(u) {
     setEditando(u)
-    reset({ nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo })
+    reset({ nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo, disciplina_id: u.disciplina_id ?? '' })
     setModal(true)
   }
 
@@ -139,7 +143,7 @@ export default function UsuariosPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              {['Nombre', 'Email', 'Rol', 'Activo', ''].map((h) => (
+              {['Nombre', 'Email', 'Rol', 'Disciplina', 'Activo', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   {h}
                 </th>
@@ -155,6 +159,11 @@ export default function UsuariosPage() {
                   <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROL_BADGE[u.rol]}`}>
                     {u.rol}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  {u.disciplina
+                    ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">{u.disciplina.nombre}</span>
+                    : <span className="text-xs text-gray-300">—</span>}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-medium ${u.activo ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -208,6 +217,21 @@ export default function UsuariosPage() {
               <option value="INSPECTOR">Inspector</option>
               <option value="SUPERVISOR">Supervisor</option>
               <option value="ADMINISTRADOR">Administrador</option>
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700">
+              Disciplina <span className="text-gray-400 text-xs">(solo inspectores)</span>
+            </label>
+            <select
+              className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              {...register('disciplina_id')}
+            >
+              <option value="">Sin disciplina</option>
+              {disciplinas?.map(d => (
+                <option key={d.id} value={d.id}>{d.nombre}</option>
+              ))}
             </select>
           </div>
 

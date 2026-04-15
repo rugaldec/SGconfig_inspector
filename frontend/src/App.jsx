@@ -6,17 +6,23 @@ import ProtectedRoute from './shared/components/layout/ProtectedRoute'
 import Spinner from './shared/components/ui/Spinner'
 
 // Cada feature se carga solo cuando el usuario navega a ella
-const LoginPage          = lazy(() => import('./features/auth/LoginPage'))
-const NuevoHallazgoPage  = lazy(() => import('./features/hallazgos/pages/NuevoHallazgoPage'))
-const MisHallazgosPage   = lazy(() => import('./features/hallazgos/pages/MisHallazgosPage'))
-const DashboardPage      = lazy(() => import('./features/dashboard/DashboardPage'))
-const HallazgosPage      = lazy(() => import('./features/hallazgos/pages/HallazgosPage'))
-const HallazgoDetallePage = lazy(() => import('./features/hallazgos/pages/HallazgoDetallePage'))
-const UsuariosPage       = lazy(() => import('./features/usuarios/pages/UsuariosPage'))
-const UbicacionesPage    = lazy(() => import('./features/ubicaciones/pages/UbicacionesPage'))
-const ListasCorreoPage   = lazy(() => import('./features/listasCorreo/pages/ListasCorreoPage'))
-const LogsCorreoPage     = lazy(() => import('./features/logsCorreo/pages/LogsCorreoPage'))
-const LogsAccesoPage    = lazy(() => import('./features/logsAcceso/pages/LogsAccesoPage'))
+const LoginPage            = lazy(() => import('./features/auth/LoginPage'))
+const NuevoHallazgoPage    = lazy(() => import('./features/hallazgos/pages/NuevoHallazgoPage'))
+const MisHallazgosPage     = lazy(() => import('./features/hallazgos/pages/MisHallazgosPage'))
+const DashboardPage        = lazy(() => import('./features/dashboard/DashboardPage'))
+const HallazgosPage        = lazy(() => import('./features/hallazgos/pages/HallazgosPage'))
+const HallazgoDetallePage  = lazy(() => import('./features/hallazgos/pages/HallazgoDetallePage'))
+const UsuariosPage         = lazy(() => import('./features/usuarios/pages/UsuariosPage'))
+const UbicacionesPage      = lazy(() => import('./features/ubicaciones/pages/UbicacionesPage'))
+const ListasCorreoPage     = lazy(() => import('./features/listasCorreo/pages/ListasCorreoPage'))
+const LogsCorreoPage       = lazy(() => import('./features/logsCorreo/pages/LogsCorreoPage'))
+const LogsAccesoPage       = lazy(() => import('./features/logsAcceso/pages/LogsAccesoPage'))
+const DisciplinasPage      = lazy(() => import('./features/disciplinas/pages/DisciplinasPage'))
+const PautasPage           = lazy(() => import('./features/pautas/pages/PautasPage'))
+const NuevaPautaPage       = lazy(() => import('./features/pautas/pages/NuevaPautaPage'))
+const PautaDetallePage     = lazy(() => import('./features/pautas/pages/PautaDetallePage'))
+const EjecucionDetallePage = lazy(() => import('./features/pautas/pages/EjecucionDetallePage'))
+const MisPautasPage        = lazy(() => import('./features/pautas/pages/MisPautasPage'))
 
 function PageLoader() {
   return (
@@ -47,30 +53,37 @@ export default function App() {
             {/* Inspector */}
             <Route element={<ProtectedRoute roles={['INSPECTOR']} />}>
               <Route element={<AppShell />}>
-                <Route path="/inspector/nuevo"           element={<NuevoHallazgoPage />} />
-                <Route path="/inspector/hallazgos"       element={<MisHallazgosPage />} />
-                <Route path="/inspector/hallazgos/:id"   element={<HallazgoDetallePage />} />
+                <Route path="/inspector/nuevo"              element={<NuevoHallazgoPage />} />
+                <Route path="/inspector/hallazgos"          element={<MisHallazgosPage />} />
+                <Route path="/inspector/hallazgos/:id"      element={<HallazgoDetallePage />} />
+                <Route path="/inspector/pautas"             element={<MisPautasPage />} />
+                <Route path="/inspector/ejecuciones/:id"    element={<EjecucionDetallePage />} />
               </Route>
             </Route>
 
             {/* Supervisor y Admin */}
             <Route element={<ProtectedRoute roles={['SUPERVISOR', 'ADMINISTRADOR']} />}>
               <Route element={<AppShell />}>
-                <Route path="/supervisor/dashboard"        element={<DashboardPage />} />
-                <Route path="/supervisor/hallazgos"        element={<HallazgosPage />} />
-                <Route path="/supervisor/hallazgos/:id"    element={<HallazgoDetallePage />} />
-                <Route path="/supervisor/nuevo"            element={<NuevoHallazgoPage />} />
+                <Route path="/supervisor/dashboard"         element={<DashboardPage />} />
+                <Route path="/supervisor/hallazgos"         element={<HallazgosPage />} />
+                <Route path="/supervisor/hallazgos/:id"     element={<HallazgoDetallePage />} />
+                <Route path="/supervisor/nuevo"             element={<NuevoHallazgoPage />} />
+                <Route path="/supervisor/pautas"            element={<PautasPage />} />
+                <Route path="/supervisor/pautas/nueva"      element={<NuevaPautaPage />} />
+                <Route path="/supervisor/pautas/:id"        element={<PautaDetallePage />} />
+                <Route path="/supervisor/ejecuciones/:id"   element={<EjecucionDetallePage />} />
               </Route>
             </Route>
 
             {/* Solo Admin */}
             <Route element={<ProtectedRoute roles={['ADMINISTRADOR']} />}>
               <Route element={<AppShell />}>
-                <Route path="/admin/usuarios"      element={<UsuariosPage />} />
-                <Route path="/admin/ubicaciones"   element={<UbicacionesPage />} />
+                <Route path="/admin/usuarios"       element={<UsuariosPage />} />
+                <Route path="/admin/ubicaciones"    element={<UbicacionesPage />} />
                 <Route path="/admin/listas-correo"  element={<ListasCorreoPage />} />
                 <Route path="/admin/logs-correo"    element={<LogsCorreoPage />} />
                 <Route path="/admin/logs-acceso"    element={<LogsAccesoPage />} />
+                <Route path="/admin/disciplinas"    element={<DisciplinasPage />} />
               </Route>
             </Route>
 

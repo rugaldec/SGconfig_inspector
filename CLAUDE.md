@@ -595,3 +595,37 @@ Antes de considerar una feature lista, verificar:
 - Siempre ejecutar `prisma generate` después de `migrate deploy` cuando el schema cambió
 - El path del schema siempre: `--schema=src/db/schema.prisma` (no `scr`)
 - Nginx necesita `X-Forwarded-For` en proxy_set_header para que LogAcceso capture la IP real
+
+---
+
+## Feature Planificada: Pautas de Inspección
+
+> Diseño completo en `plan_inspeccion.md`. Resumen para tener en cuenta al implementar:
+
+### Modelo conceptual
+
+- **`Disciplina`**: catálogo administrable (Correas, Eléctrico, Estructural…). Los inspectores tienen una disciplina asignada. Los supervisores/admins no.
+- **`PautaInspeccion`** (plantilla): define qué UBTs inspeccionar. Permanente, reutilizable. No tiene estado ni período.
+- **`PautaUBT`**: tabla de unión plantilla ↔ UBT nivel 4, con orden de recorrido.
+- **`EjecucionPauta`**: instancia de una ronda concreta con `fecha_inicio`, `fecha_fin` y `estado`. El supervisor la crea desde la plantilla.
+- **`ItemEjecucion`**: copia de cada UBT al momento de crear la ejecución. Tiene `ejecutado_por_id` → trazabilidad de quién inspeccionó qué en esa ronda.
+
+### Reglas clave
+
+- La pauta se asigna a una **disciplina**, no a un inspector individual. Cualquier inspector de esa disciplina puede ejecutarla.
+- Un ítem marcado por un compañero es visible pero no re-inspeccionable (evita duplicados).
+- Solo puede haber una ejecución PENDIENTE o EN_CURSO por plantilla a la vez.
+- El backend retorna 409 si un ítem ya fue tomado (manejo de conflicto offline).
+- Al crear una ejecución, el backend copia automáticamente las `PautaUBT` como `ItemEjecucion`.
+
+### Nuevas features/rutas
+
+- `/admin/disciplinas` — CRUD de disciplinas (ADMIN)
+- `/pautas` — listado de plantillas (SUPERVISOR, ADMIN)
+- `/pautas/:id` — detalle con historial de ejecuciones + botón "Programar nueva ejecución"
+- `/pautas/:id/ejecuciones/:ejecucionId` — detalle de una ronda específica
+- `/mis-pautas` — ejecuciones activas de la disciplina del inspector
+
+### Historial de ejecuciones
+
+Al ver el detalle de una plantilla, el supervisor ve todas las rondas pasadas y en curso con: período, estado, cobertura (X/N ítems), inspectores participantes y hallazgos generados. Al hacer clic en una fila ve el detalle completo ítem por ítem con quién lo inspeccionó y cuándo.

@@ -11,7 +11,10 @@ function validarPassword(password) {
   return null
 }
 
-const SELECT_USUARIO = { id: true, nombre: true, email: true, rol: true, activo: true, fecha_creacion: true }
+// disciplina_id y disciplina se activan luego de aplicar la migración add_pautas_inspeccion
+const SELECT_USUARIO = {
+  id: true, nombre: true, email: true, rol: true, activo: true, fecha_creacion: true,
+}
 
 async function listar(req, res) {
   const usuarios = await prisma.usuario.findMany({ select: SELECT_USUARIO, orderBy: { nombre: 'asc' } })
@@ -37,6 +40,9 @@ async function crear(req, res) {
   const hash = await bcrypt.hash(password, 12)
   const user = await prisma.usuario.create({
     data: { nombre: nombre.trim(), email: email.trim().toLowerCase(), password_hash: hash, rol },
+    // disciplina_id: activar luego de aplicar la migración add_pautas_inspeccion
+    // const disId = rol === 'INSPECTOR' && disciplina_id ? disciplina_id : null
+    // data: { ..., disciplina_id: disId }
     select: SELECT_USUARIO,
   })
   return ok(res, user, 'Usuario creado', 201)
@@ -44,6 +50,7 @@ async function crear(req, res) {
 
 async function actualizar(req, res) {
   const { nombre, email, rol, activo } = req.body
+  // disciplina_id: activar luego de aplicar la migración add_pautas_inspeccion
   const user = await prisma.usuario.findUnique({ where: { id: req.params.id } })
   if (!user) return fail(res, 'NOT_FOUND', 'Usuario no encontrado', 404)
 
@@ -59,6 +66,9 @@ async function actualizar(req, res) {
       ...(email && { email: email.trim().toLowerCase() }),
       ...(rol && { rol }),
       ...(activo !== undefined && { activo }),
+      // disciplina_id: activar luego de migración
+      // const rolFinal = rol ?? user.rol
+      // const disId = rolFinal === 'INSPECTOR' ? (disciplina_id !== undefined ? (disciplina_id || null) : user.disciplina_id) : null
     },
     select: SELECT_USUARIO,
   })
