@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { nuevoHallazgoSchema } from '../schemas'
 import { useCrearHallazgo } from '../hooks/useHallazgos'
+import { useMarcarItem } from '../../pautas/hooks/usePautas'
 import { useOfflineQueue } from '../../../shared/hooks/useOfflineQueue'
 import { useAuth } from '../../auth/useAuth'
 import { CRITICIDAD_CONFIG, CATEGORIA_CONFIG } from '../estadoMachine'
@@ -13,12 +14,24 @@ import Button from '../../../shared/components/ui/Button'
 
 export default function NuevoHallazgoPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const { enqueue, isOnline } = useOfflineQueue()
   const crearHallazgo = useCrearHallazgo()
-  const successRedirect = user?.rol === 'INSPECTOR' ? '/inspector/hallazgos' : '/supervisor/hallazgos'
+  const marcarItem = useMarcarItem()
 
-  const [foto, setFoto] = useState(null)
+  // Parámetros opcionales desde una ejecución de pauta
+  const ejecucionId = searchParams.get('ejecucionId')
+  const itemId = searchParams.get('itemId')
+  const ubicacionIdParam = searchParams.get('ubicacionId')
+  const desdeEjecucion = !!(ejecucionId && itemId)
+
+  const successRedirect = user?.rol === 'INSPECTOR' ? '/inspector/hallazgos' : '/supervisor/hallazgos'
+  const ejecucionRedirect = user?.rol === 'INSPECTOR'
+    ? `/inspector/ejecuciones/${ejecucionId}`
+    : `/supervisor/ejecuciones/${ejecucionId}`
+
+  const [fotos, setFotos] = useState([])
   const [fotoError, setFotoError] = useState(null)
   const [ubicacion, setUbicacion] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -28,11 +41,11 @@ export default function NuevoHallazgoPage() {
   })
 
   async function onSubmit(data) {
-    if (!foto) { setFotoError('La foto es obligatoria'); return }
+    if (!fotos.length) { setFotoError('Al menos una foto es obligatoria'); return }
     setFotoError(null)
 
     if (!isOnline) {
-      await enqueue({ ...data, foto, ubicacion })
+      await enqueue({ ...data, foto: fotos[0], ubicacion })
       setSuccess(true)
       setTimeout(() => navigate(successRedirect), 1500)
       return
@@ -43,12 +56,25 @@ export default function NuevoHallazgoPage() {
     fd.append('descripcion', data.descripcion)
     fd.append('criticidad', data.criticidad)
     fd.append('categoria', data.categoria)
-    fd.append('foto', foto)
+    fotos.forEach(f => fd.append('fotos', f))
 
     crearHallazgo.mutate(fd, {
-      onSuccess: () => {
-        setSuccess(true)
-        setTimeout(() => navigate(successRedirect), 1500)
+      onSuccess: (hallazgo) => {
+        // Si viene desde una ejecución, vincular el hallazgo al ítem y volver
+        if (desdeEjecucion && hallazgo?.id) {
+          marcarItem.mutate(
+            { ejecucionId, itemId, datos: { hallazgo_id: hallazgo.id } },
+            {
+              onSettled: () => {
+                setSuccess(true)
+                setTimeout(() => navigate(ejecucionRedirect), 1500)
+              },
+            },
+          )
+        } else {
+          setSuccess(true)
+          setTimeout(() => navigate(successRedirect), 1500)
+        }
       },
     })
   }
@@ -67,6 +93,12 @@ export default function NuevoHallazgoPage() {
   return (
     <div className="max-w-lg mx-auto">
       <h1 className="text-xl font-bold text-gray-800 mb-5">Nuevo Hallazgo</h1>
+
+      {desdeEjecucion && (
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-700">
+          Creando hallazgo desde pauta de inspección — se vinculará automáticamente al ítem.
+        </div>
+      )}
 
       {!isOnline && (
         <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
@@ -93,12 +125,13 @@ export default function NuevoHallazgoPage() {
           />
         </div>
 
-        {/* Foto */}
+        {/* Fotos */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Foto del Hallazgo
+            Fotos del Hallazgo
+            <span className="ml-1.5 text-xs text-gray-400 font-normal">— hasta 5 fotos</span>
           </label>
-          <CamaraInput onChange={setFoto} error={fotoError} />
+          <CamaraInput fotos={fotos} onChange={setFotos} error={fotoError} />
         </div>
 
         {/* Descripción */}

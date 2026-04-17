@@ -11,7 +11,10 @@ function validarPassword(password) {
   return null
 }
 
-const SELECT_USUARIO = { id: true, nombre: true, email: true, rol: true, activo: true, fecha_creacion: true }
+const SELECT_USUARIO = {
+  id: true, nombre: true, email: true, rol: true, activo: true, fecha_creacion: true,
+  disciplinas: { select: { disciplina_id: true, disciplina: { select: { id: true, nombre: true } } } },
+}
 
 async function listar(req, res) {
   const usuarios = await prisma.usuario.findMany({ select: SELECT_USUARIO, orderBy: { nombre: 'asc' } })
@@ -25,7 +28,7 @@ async function uno(req, res) {
 }
 
 async function crear(req, res) {
-  const { nombre, email, password, rol } = req.body
+  const { nombre, email, password, rol, disciplinas } = req.body
   if (!nombre || !email || !password || !rol) return fail(res, 'DATOS_INCOMPLETOS', 'Todos los campos son obligatorios')
 
   const errorPwd = validarPassword(password)
@@ -35,15 +38,27 @@ async function crear(req, res) {
   if (existe) return fail(res, 'EMAIL_DUPLICADO', 'El email ya está registrado', 409)
 
   const hash = await bcrypt.hash(password, 12)
+
+  // disciplinas es un array de ids, solo aplica a INSPECTOR
+  const discIds = rol === 'INSPECTOR' && Array.isArray(disciplinas) ? disciplinas.filter(Boolean) : []
+
   const user = await prisma.usuario.create({
-    data: { nombre: nombre.trim(), email: email.trim().toLowerCase(), password_hash: hash, rol },
+    data: {
+      nombre: nombre.trim(),
+      email: email.trim().toLowerCase(),
+      password_hash: hash,
+      rol,
+      disciplinas: discIds.length
+        ? { create: discIds.map(did => ({ disciplina_id: did })) }
+        : undefined,
+    },
     select: SELECT_USUARIO,
   })
   return ok(res, user, 'Usuario creado', 201)
 }
 
 async function actualizar(req, res) {
-  const { nombre, email, rol, activo } = req.body
+  const { nombre, email, rol, activo, disciplinas } = req.body
   const user = await prisma.usuario.findUnique({ where: { id: req.params.id } })
   if (!user) return fail(res, 'NOT_FOUND', 'Usuario no encontrado', 404)
 
@@ -52,16 +67,35 @@ async function actualizar(req, res) {
     if (existe) return fail(res, 'EMAIL_DUPLICADO', 'El email ya está registrado', 409)
   }
 
-  const actualizado = await prisma.usuario.update({
-    where: { id: req.params.id },
-    data: {
-      ...(nombre && { nombre: nombre.trim() }),
-      ...(email && { email: email.trim().toLowerCase() }),
-      ...(rol && { rol }),
-      ...(activo !== undefined && { activo }),
-    },
-    select: SELECT_USUARIO,
-  })
+  const rolFinal = rol ?? user.rol
+
+  // Reemplazar disciplinas en una transacción si vienen en el body
+  const ops = [
+    prisma.usuario.update({
+      where: { id: req.params.id },
+      data: {
+        ...(nombre && { nombre: nombre.trim() }),
+        ...(email && { email: email.trim().toLowerCase() }),
+        ...(rol && { rol }),
+        ...(activo !== undefined && { activo }),
+      },
+    }),
+  ]
+
+  if (disciplinas !== undefined) {
+    const discIds = rolFinal === 'INSPECTOR' && Array.isArray(disciplinas) ? disciplinas.filter(Boolean) : []
+    ops.push(prisma.usuarioDisciplina.deleteMany({ where: { usuario_id: req.params.id } }))
+    if (discIds.length) {
+      ops.push(prisma.usuarioDisciplina.createMany({
+        data: discIds.map(did => ({ usuario_id: req.params.id, disciplina_id: did })),
+        skipDuplicates: true,
+      }))
+    }
+  }
+
+  await prisma.$transaction(ops)
+
+  const actualizado = await prisma.usuario.findUnique({ where: { id: req.params.id }, select: SELECT_USUARIO })
   return ok(res, actualizado)
 }
 

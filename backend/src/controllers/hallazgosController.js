@@ -18,10 +18,15 @@ const INCLUDE_DETALLE = {
     include: { usuario: { select: { id: true, nombre: true, rol: true } } },
     orderBy: { fecha: 'asc' },
   },
+  fotos: {
+    select: { id: true, foto_url: true, tipo: true, created_at: true },
+    orderBy: { created_at: 'asc' },
+  },
 }
 
 async function crear(req, res) {
-  if (!req.file) return fail(res, 'FOTO_REQUERIDA', 'La foto es obligatoria', 400)
+  const archivos = req.files ?? []
+  if (!archivos.length) return fail(res, 'FOTO_REQUERIDA', 'Al menos una foto es obligatoria', 400)
 
   const { ubicacion_tecnica_id, descripcion, criticidad, categoria } = req.body
   if (!ubicacion_tecnica_id || !descripcion || !criticidad || !categoria) {
@@ -36,7 +41,8 @@ async function crear(req, res) {
   if (!ubicacion || !ubicacion.activo) return fail(res, 'UBICACION_INVALIDA', 'Ubicación técnica no encontrada', 404)
   if (ubicacion.nivel !== 4) return fail(res, 'NIVEL_INVALIDO', 'Solo se pueden registrar hallazgos en Sub Equipos (nivel 4)', 400)
 
-  const fotoUrl = await guardar(req.file.buffer, req.file.mimetype, uuidv4())
+  // Subir todas las fotos en paralelo
+  const fotoUrls = await Promise.all(archivos.map(f => guardar(f.buffer, f.mimetype, uuidv4())))
 
   const hallazgo = await prisma.$transaction(async (tx) => {
     const numeroAviso = await generarNumeroAviso(tx)
@@ -47,9 +53,13 @@ async function crear(req, res) {
         descripcion: descripcion.trim(),
         criticidad,
         categoria,
-        foto_url: fotoUrl,
+        foto_url: fotoUrls[0],   // primera foto como campo primario (compatibilidad PDF/email)
         inspector_id: req.user.id,
       },
+    })
+    // Guardar todas las fotos en la tabla de fotos
+    await tx.hallazgoFoto.createMany({
+      data: fotoUrls.map(url => ({ hallazgo_id: h.id, foto_url: url, tipo: 'INICIAL' })),
     })
     await tx.cambioEstado.create({
       data: {
@@ -144,8 +154,9 @@ async function cambiarEstado(req, res) {
     return fail(res, 'MOTIVO_REQUERIDO', 'El motivo es obligatorio al rechazar un hallazgo', 400)
   }
 
-  if (estado === 'CERRADO' && !req.file) {
-    return fail(res, 'FOTO_REQUERIDA', 'La foto de cierre es obligatoria para cerrar el hallazgo', 400)
+  const archivos = req.files ?? []
+  if (estado === 'CERRADO' && !archivos.length) {
+    return fail(res, 'FOTO_REQUERIDA', 'Al menos una foto de cierre es obligatoria para cerrar el hallazgo', 400)
   }
 
   const h = await prisma.hallazgo.findUnique({ where: { id: req.params.id } })
@@ -155,16 +166,21 @@ async function cambiarEstado(req, res) {
     return fail(res, 'TRANSICION_INVALIDA', `No se puede pasar de ${h.estado} a ${estado}`, 422)
   }
 
-  let fotoDespuesUrl = undefined
-  if (estado === 'CERRADO') {
-    fotoDespuesUrl = await guardar(req.file.buffer, req.file.mimetype, uuidv4())
-  }
+  // Subir fotos de cierre en paralelo
+  const fotoUrls = estado === 'CERRADO' && archivos.length
+    ? await Promise.all(archivos.map(f => guardar(f.buffer, f.mimetype, uuidv4())))
+    : []
 
   const actualizado = await prisma.$transaction(async (tx) => {
     const updateData = { estado }
     if (estado === 'EN_GESTION') updateData.numero_aviso_sap = numero_aviso_sap.trim().slice(0, 50)
-    if (fotoDespuesUrl) updateData.foto_despues_url = fotoDespuesUrl
+    if (fotoUrls.length) updateData.foto_despues_url = fotoUrls[0]  // primera como campo primario
     const updated = await tx.hallazgo.update({ where: { id: h.id }, data: updateData })
+    if (fotoUrls.length) {
+      await tx.hallazgoFoto.createMany({
+        data: fotoUrls.map(url => ({ hallazgo_id: h.id, foto_url: url, tipo: 'CIERRE' })),
+      })
+    }
     await tx.cambioEstado.create({
       data: { hallazgo_id: h.id, estado_anterior: h.estado, estado_nuevo: estado, usuario_id: req.user.id, motivo: motivo?.trim() || null },
     })

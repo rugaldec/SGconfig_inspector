@@ -147,12 +147,51 @@ export default function UbicacionesPage() {
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-800">Ubicaciones Técnicas</h1>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" loading={exportando} onClick={handleExport}>
-            <Download size={14} /> Exportar CSV
-          </Button>
-          <Button variant="secondary" size="sm" loading={importar.isPending} onClick={() => fileRef.current?.click()}>
-            <Upload size={14} /> Importar Excel
-          </Button>
+          <div className="relative group">
+            <Button variant="secondary" size="sm" loading={exportando} onClick={handleExport}>
+              <Download size={14} /> Exportar CSV
+            </Button>
+            <div className="absolute right-0 top-full mt-2 w-72 bg-gray-900 text-white text-xs rounded-xl p-3 shadow-xl
+                            opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50">
+              <p className="font-semibold mb-1">📥 Exportar CSV</p>
+              <p className="text-gray-300 leading-relaxed">
+                Descarga todas las ubicaciones activas en formato CSV listo para Excel.
+                Incluye columna <span className="text-yellow-300 font-mono">accion</span> para indicar qué hacer al reimportar:
+              </p>
+              <ul className="mt-1.5 space-y-0.5 text-gray-300">
+                <li><span className="text-emerald-400 font-mono">AGREGAR</span> — crea nuevos registros</li>
+                <li><span className="text-blue-400 font-mono">MODIFICAR</span> — actualiza la descripción</li>
+                <li><span className="text-red-400 font-mono">ELIMINAR</span> — desactiva el registro y sus hijos</li>
+                <li><span className="text-yellow-300 font-mono">#</span> — comentario, la fila se ignora</li>
+              </ul>
+              <p className="mt-1.5 text-gray-400">El archivo incluye comentarios de instrucciones al inicio.</p>
+              <div className="absolute right-4 -top-1.5 w-3 h-3 bg-gray-900 rotate-45" />
+            </div>
+          </div>
+
+          <div className="relative group">
+            <Button variant="secondary" size="sm" loading={importar.isPending} onClick={() => fileRef.current?.click()}>
+              <Upload size={14} /> Importar Excel
+            </Button>
+            <div className="absolute right-0 top-full mt-2 w-72 bg-gray-900 text-white text-xs rounded-xl p-3 shadow-xl
+                            opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50">
+              <p className="font-semibold mb-1">📤 Importar Excel / CSV</p>
+              <p className="text-gray-300 leading-relaxed">
+                Sube un archivo <span className="text-yellow-300">.xlsx</span> o <span className="text-yellow-300">.csv</span> con la columna
+                <span className="text-yellow-300 font-mono"> accion</span> completada. Flujo recomendado:
+              </p>
+              <ol className="mt-1.5 space-y-0.5 text-gray-300 list-decimal list-inside">
+                <li>Exporta el CSV actual</li>
+                <li>Edita en Excel: llena columna <span className="font-mono">accion</span></li>
+                <li>Agrega filas nuevas con <span className="text-emerald-400 font-mono">AGREGAR</span></li>
+                <li>Reimporta aquí</li>
+              </ol>
+              <p className="mt-1.5 text-gray-300">Las eliminaciones ignoran hallazgos asociados.</p>
+              <p className="mt-1 text-gray-400">💡 Filas con <span className="font-mono text-yellow-300">#</span> en columna accion son comentarios y se ignoran.</p>
+              <div className="absolute right-4 -top-1.5 w-3 h-3 bg-gray-900 rotate-45" />
+            </div>
+          </div>
+
           <Button size="sm" onClick={abrirNuevoRaiz}>
             <Plus size={14} /> Nueva Planta
           </Button>
@@ -162,17 +201,47 @@ export default function UbicacionesPage() {
       <input ref={fileRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={handleImport} />
 
       {importResult && (
-        <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3">
-          <p className="text-sm font-medium text-emerald-700">
-            Importación: {importResult.creados} creados
-            {importResult.omitidos > 0 && `, ${importResult.omitidos} omitidos por código duplicado`}
-          </p>
+        <div className="mb-4 bg-white border rounded-xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-700">Resultado de importación</p>
+            <button onClick={() => setImportResult(null)} className="text-gray-400 hover:text-gray-600 text-xs">✕ cerrar</button>
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            {importResult.creados > 0 && (
+              <span className="flex items-center gap-1 text-sm text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full font-medium">
+                <span className="text-base">+</span> {importResult.creados} agregados
+              </span>
+            )}
+            {importResult.modificados > 0 && (
+              <span className="flex items-center gap-1 text-sm text-blue-700 bg-blue-50 px-3 py-1 rounded-full font-medium">
+                <span className="text-base">✎</span> {importResult.modificados} modificados
+              </span>
+            )}
+            {importResult.eliminados > 0 && (
+              <span className="flex items-center gap-1 text-sm text-red-700 bg-red-50 px-3 py-1 rounded-full font-medium">
+                <span className="text-base">−</span> {importResult.eliminados} eliminados
+              </span>
+            )}
+            {importResult.omitidos > 0 && (
+              <span className="flex items-center gap-1 text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                <span className="text-base">—</span> {importResult.omitidos} sin acción (ignoradas)
+              </span>
+            )}
+            {importResult.creados === 0 && importResult.modificados === 0 && importResult.eliminados === 0 && importResult.errores?.length === 0 && (
+              <span className="text-sm text-gray-500">Sin cambios aplicados — recuerda llenar la columna <code className="bg-gray-100 px-1 rounded">accion</code></span>
+            )}
+          </div>
           {importResult.errores?.length > 0 && (
-            <ul className="mt-1 space-y-0.5">
-              {importResult.errores.map((e, i) => (
-                <li key={i} className="text-xs text-red-600">Fila {e.fila}: {e.motivo}</li>
-              ))}
-            </ul>
+            <div className="border-t pt-2 mt-1">
+              <p className="text-xs font-medium text-red-600 mb-1">{importResult.errores.length} fila(s) con error:</p>
+              <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+                {importResult.errores.map((e, i) => (
+                  <li key={i} className="text-xs text-red-600">
+                    Fila {e.fila}{e.accion ? ` [${e.accion}]` : ''}: {e.motivo}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
       )}

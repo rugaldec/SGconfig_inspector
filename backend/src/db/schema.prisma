@@ -35,20 +35,64 @@ enum EstadoHallazgo {
   RECHAZADO
 }
 
+enum EstadoPauta {
+  PENDIENTE
+  EN_CURSO
+  COMPLETADA
+  NO_EJECUTADA
+}
+
+enum TipoCampo {
+  CHECKBOX_ESTADO
+  NUMERICO
+  TEXTO
+}
+
+model Disciplina {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  usuarios    UsuarioDisciplina[]
+  pautas      PautaInspeccion[]
+  plantillas  PlantillaVerificacion[]
+
+  @@map("disciplinas")
+}
+
+model UsuarioDisciplina {
+  id            String     @id @default(uuid())
+  usuario_id    String
+  disciplina_id String
+  usuario       Usuario    @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+  disciplina    Disciplina @relation(fields: [disciplina_id], references: [id], onDelete: Cascade)
+
+  @@unique([usuario_id, disciplina_id])
+  @@index([usuario_id])
+  @@index([disciplina_id])
+  @@map("usuarios_disciplinas")
+}
+
 model Usuario {
-  id                  String     @id @default(uuid())
+  id                  String      @id @default(uuid())
   nombre              String
-  email               String     @unique
+  email               String      @unique
   password_hash       String
   rol                 Rol
-  activo              Boolean    @default(true)
-  fecha_creacion      DateTime   @default(now())
-  fecha_actualizacion DateTime   @updatedAt
+  activo              Boolean     @default(true)
+  fecha_creacion      DateTime    @default(now())
+  fecha_actualizacion DateTime    @updatedAt
 
-  hallazgos    Hallazgo[]    @relation("InspectorHallazgos")
-  comentarios  Comentario[]
-  cambios      CambioEstado[]
-  logs_acceso  LogAcceso[]
+  disciplinas         UsuarioDisciplina[]
+  hallazgos           Hallazgo[]       @relation("InspectorHallazgos")
+  comentarios         Comentario[]
+  cambios             CambioEstado[]
+  logs_acceso         LogAcceso[]
+  pautas_creadas      PautaInspeccion[] @relation("PautasCreadas")
+  ejecuciones_creadas EjecucionPauta[] @relation("EjecucionesCreadas")
+  items_ejecutados    ItemEjecucion[]  @relation("ItemsEjecutados")
 
   @@map("usuarios")
 }
@@ -80,9 +124,12 @@ model UbicacionTecnica {
   fecha_creacion      DateTime @default(now())
   fecha_actualizacion DateTime @updatedAt
 
-  hallazgos    Hallazgo[]
-  lista_correo ListaCorreo?  @relation("ListasCorreo")
-  logs_correo  LogCorreo[]   @relation("LogsCorreoZona")
+  hallazgos         Hallazgo[]
+  lista_correo      ListaCorreo?      @relation("ListasCorreo")
+  logs_correo       LogCorreo[]       @relation("LogsCorreoZona")
+  pautas_inspeccion PautaInspeccion[] @relation("PautaZonaFuncional")
+  pautas_ubts       PautaUBT[]        @relation("PautaUBTUbicacion")
+  items_ejecucion   ItemEjecucion[]   @relation("ItemEjecucionUbicacion")
 
   @@index([padre_id])
   @@index([nivel])
@@ -97,25 +144,27 @@ model ContadorAviso {
 }
 
 model Hallazgo {
-  id                   String         @id @default(uuid())
-  numero_aviso         String         @unique
+  id                   String            @id @default(uuid())
+  numero_aviso         String            @unique
   numero_aviso_sap     String?
   ubicacion_tecnica_id String
-  ubicacion_tecnica    UbicacionTecnica @relation(fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica    UbicacionTecnica  @relation(fields: [ubicacion_tecnica_id], references: [id])
   descripcion          String
   criticidad           Criticidad
   categoria            CategoriaHallazgo
   foto_url             String
   foto_despues_url     String?
-  estado               EstadoHallazgo @default(ABIERTO)
+  estado               EstadoHallazgo    @default(ABIERTO)
   inspector_id         String
-  inspector            Usuario        @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
-  fecha_creacion       DateTime       @default(now())
-  fecha_actualizacion  DateTime       @updatedAt
+  inspector            Usuario           @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
+  fecha_creacion       DateTime          @default(now())
+  fecha_actualizacion  DateTime          @updatedAt
 
   comentarios    Comentario[]
   cambios_estado CambioEstado[]
   logs_correo    LogCorreo[]
+  item_ejecucion ItemEjecucion?
+  fotos          HallazgoFoto[]
 
   @@index([estado])
   @@index([criticidad])
@@ -123,6 +172,18 @@ model Hallazgo {
   @@index([ubicacion_tecnica_id])
   @@index([fecha_creacion])
   @@map("hallazgos")
+}
+
+model HallazgoFoto {
+  id          String   @id @default(uuid())
+  hallazgo_id String
+  hallazgo    Hallazgo @relation(fields: [hallazgo_id], references: [id], onDelete: Cascade)
+  foto_url    String
+  tipo        String   // 'INICIAL' | 'CIERRE'
+  created_at  DateTime @default(now())
+
+  @@index([hallazgo_id])
+  @@map("hallazgo_fotos")
 }
 
 model Comentario {
@@ -181,4 +242,145 @@ model CambioEstado {
 
   @@index([hallazgo_id])
   @@map("cambios_estado")
+}
+
+model PautaInspeccion {
+  id                String           @id @default(uuid())
+  nombre            String
+  descripcion       String?
+  disciplina        Disciplina       @relation(fields: [disciplina_id], references: [id])
+  disciplina_id     String
+  zona_funcional    UbicacionTecnica? @relation("PautaZonaFuncional", fields: [zona_funcional_id], references: [id])
+  zona_funcional_id String?
+  activo            Boolean          @default(true)
+  creado_por        Usuario          @relation("PautasCreadas", fields: [created_by], references: [id])
+  created_by        String
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+
+  ubts        PautaUBT[]
+  ejecuciones EjecucionPauta[]
+
+  @@index([disciplina_id])
+  @@index([zona_funcional_id])
+  @@map("pautas_inspeccion")
+}
+
+model PautaUBT {
+  id                   String           @id @default(uuid())
+  pauta                PautaInspeccion  @relation(fields: [pauta_id], references: [id], onDelete: Cascade)
+  pauta_id             String
+  ubicacion_tecnica    UbicacionTecnica @relation("PautaUBTUbicacion", fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica_id String
+  orden                Int
+  plantilla_verif_id   String?
+  plantilla_verif      PlantillaVerificacion? @relation("PlantillaUBT", fields: [plantilla_verif_id], references: [id], onDelete: SetNull)
+
+  @@unique([pauta_id, ubicacion_tecnica_id])
+  @@index([pauta_id])
+  @@map("pautas_ubts")
+}
+
+model EjecucionPauta {
+  id               String          @id @default(uuid())
+  pauta            PautaInspeccion @relation(fields: [pauta_id], references: [id], onDelete: Cascade)
+  pauta_id         String
+  fecha_inicio     DateTime
+  fecha_fin        DateTime
+  estado           EstadoPauta     @default(PENDIENTE)
+  fecha_completada DateTime?
+  motivo_cierre    String?
+  creado_por       Usuario         @relation("EjecucionesCreadas", fields: [created_by], references: [id])
+  created_by       String
+  created_at       DateTime        @default(now())
+
+  // Ciclo automático
+  relanzamiento_auto  Boolean  @default(false)
+  frecuencia_tipo     String?                 // DIARIA | SEMANAL | QUINCENAL | MENSUAL | PERSONALIZADA
+  frecuencia_dias     Int?                    // días entre rondas (PERSONALIZADA o calculado del tipo)
+  duracion_dias       Int?                    // duración de cada ronda en días
+  max_ejecuciones     Int?                    // null = sin límite
+  numero_ronda        Int      @default(1)    // número de esta ronda en el ciclo
+  origen              String   @default("MANUAL")  // MANUAL | AUTO
+  ejecucion_padre_id  String?
+  ejecucion_padre     EjecucionPauta?  @relation("CicloEjecucion", fields: [ejecucion_padre_id], references: [id], onDelete: SetNull)
+  ejecuciones_hijas   EjecucionPauta[] @relation("CicloEjecucion")
+
+  items ItemEjecucion[]
+
+  @@index([pauta_id])
+  @@index([estado])
+  @@index([ejecucion_padre_id])
+  @@map("ejecuciones_pauta")
+}
+
+model ItemEjecucion {
+  id                   String           @id @default(uuid())
+  ejecucion            EjecucionPauta   @relation(fields: [ejecucion_id], references: [id], onDelete: Cascade)
+  ejecucion_id         String
+  ubicacion_tecnica    UbicacionTecnica @relation("ItemEjecucionUbicacion", fields: [ubicacion_tecnica_id], references: [id])
+  ubicacion_tecnica_id String
+  orden                Int
+  inspeccionado        Boolean          @default(false)
+  ejecutado_por        Usuario?         @relation("ItemsEjecutados", fields: [ejecutado_por_id], references: [id])
+  ejecutado_por_id     String?
+  fecha_inspeccion     DateTime?
+  observacion          String?
+  foto_url             String?
+  hallazgo             Hallazgo?        @relation(fields: [hallazgo_id], references: [id])
+  hallazgo_id          String?          @unique
+  plantilla_verif_id   String?
+  plantilla_verif      PlantillaVerificacion? @relation("PlantillaItem", fields: [plantilla_verif_id], references: [id], onDelete: SetNull)
+  respuestas           RespuestaCampo[]
+
+  @@index([ejecucion_id])
+  @@map("items_ejecucion")
+}
+
+model PlantillaVerificacion {
+  id            String           @id @default(uuid())
+  nombre        String
+  descripcion   String?
+  disciplina    Disciplina       @relation(fields: [disciplina_id], references: [id])
+  disciplina_id String
+  activo        Boolean          @default(true)
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
+
+  campos     CampoPlantilla[]
+  pautas_ubt PautaUBT[]       @relation("PlantillaUBT")
+  items_ejec ItemEjecucion[]  @relation("PlantillaItem")
+
+  @@index([disciplina_id])
+  @@map("plantillas_verificacion")
+}
+
+model CampoPlantilla {
+  id             String                @id @default(uuid())
+  plantilla_id   String
+  plantilla      PlantillaVerificacion @relation(fields: [plantilla_id], references: [id], onDelete: Cascade)
+  etiqueta       String
+  tipo           TipoCampo
+  orden          Int
+  es_obligatorio Boolean               @default(true)
+  unidad_medida  String?
+
+  respuestas RespuestaCampo[]
+
+  @@index([plantilla_id])
+  @@map("campos_plantilla")
+}
+
+model RespuestaCampo {
+  id                String         @id @default(uuid())
+  item_ejecucion_id String
+  item_ejecucion    ItemEjecucion  @relation(fields: [item_ejecucion_id], references: [id], onDelete: Cascade)
+  campo_id          String
+  campo             CampoPlantilla @relation(fields: [campo_id], references: [id])
+  valor             String
+  fecha_registro    DateTime       @default(now())
+
+  @@unique([item_ejecucion_id, campo_id])
+  @@index([item_ejecucion_id])
+  @@map("respuestas_campo")
 }

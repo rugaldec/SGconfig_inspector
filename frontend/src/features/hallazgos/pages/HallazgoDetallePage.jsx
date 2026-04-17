@@ -12,11 +12,11 @@ import TimelineEstados from '../components/TimelineEstados'
 import Spinner from '../../../shared/components/ui/Spinner'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
-import { ArrowLeft, FileDown } from 'lucide-react'
+import { ArrowLeft, FileDown, Camera, X } from 'lucide-react'
 
 function SeccionEstado({ hallazgo, mutCambiarEstado }) {
   const siguientes = siguientesEstados(hallazgo.estado)
-  const [fotoDespues, setFotoDespues] = useState(null)
+  const [fotosCierre, setFotosCierre] = useState([])
   const [fotoError, setFotoError] = useState('')
   const fotoInputRef = useRef(null)
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm({
@@ -27,20 +27,32 @@ function SeccionEstado({ hallazgo, mutCambiarEstado }) {
   if (!siguientes.length) return null
 
   function onSubmit(data) {
-    if (data.estado === 'CERRADO' && !fotoDespues) {
-      setFotoError('La foto de cierre es obligatoria')
+    if (data.estado === 'CERRADO' && !fotosCierre.length) {
+      setFotoError('Al menos una foto de cierre es obligatoria')
       return
     }
     setFotoError('')
     mutCambiarEstado.mutate(
-      { ...data, fotoDespues },
-      { onSuccess: () => { reset(); setFotoDespues(null); if (fotoInputRef.current) fotoInputRef.current.value = '' } }
+      { ...data, fotosCierre },
+      { onSuccess: () => { reset(); setFotosCierre([]) } }
     )
   }
 
   const motivoEsObligatorio = estadoSeleccionado === 'RECHAZADO'
   const requiereSap = estadoSeleccionado === 'EN_GESTION'
   const requiereFoto = estadoSeleccionado === 'CERRADO'
+
+  function agregarFotos(e) {
+    const files = Array.from(e.target.files ?? [])
+    const restantes = 5 - fotosCierre.length
+    setFotosCierre(prev => [...prev, ...files.slice(0, restantes)])
+    setFotoError('')
+    if (fotoInputRef.current) fotoInputRef.current.value = ''
+  }
+
+  function quitarFoto(idx) {
+    setFotosCierre(prev => prev.filter((_, i) => i !== idx))
+  }
 
   return (
     <div className="bg-white rounded-xl border p-4">
@@ -98,21 +110,54 @@ function SeccionEstado({ hallazgo, mutCambiarEstado }) {
             </div>
 
             {requiereFoto && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Foto de cierre <span className="text-red-500">*</span>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Fotos de cierre <span className="text-red-500">*</span>
+                  <span className="ml-1.5 text-xs text-gray-400 font-normal">— hasta 5 fotos</span>
                 </label>
-                <input
-                  ref={fotoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  onChange={(e) => { setFotoDespues(e.target.files[0] || null); setFotoError('') }}
-                />
-                {fotoDespues && (
-                  <p className="text-xs text-emerald-600 mt-1">{fotoDespues.name}</p>
+
+                {/* Grid de thumbnails seleccionados */}
+                {fotosCierre.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {fotosCierre.map((f, idx) => (
+                      <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={URL.createObjectURL(f)}
+                          alt={`Cierre ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => quitarFoto(idx)}
+                          className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-gray-600 hover:text-red-600"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
-                {fotoError && <p className="text-xs text-red-500 mt-0.5">{fotoError}</p>}
+
+                {fotosCierre.length < 5 && (
+                  <label className="flex items-center gap-2 cursor-pointer w-fit">
+                    <input
+                      ref={fotoInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      className="hidden"
+                      onChange={agregarFotos}
+                    />
+                    <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-300 hover:border-blue-400 hover:bg-blue-50 text-gray-600 hover:text-blue-600 transition-colors">
+                      <Camera size={13} /> {fotosCierre.length === 0 ? 'Seleccionar fotos' : 'Agregar más'}
+                    </span>
+                    {fotosCierre.length > 0 && (
+                      <span className="text-xs text-gray-400">{fotosCierre.length}/5</span>
+                    )}
+                  </label>
+                )}
+
+                {fotoError && <p className="text-xs text-red-500">{fotoError}</p>}
               </div>
             )}
 
@@ -257,6 +302,143 @@ function SeccionComentarios({ hallazgo, mutComentario }) {
   )
 }
 
+// Galería de fotos con foto principal + tira de miniaturas + lightbox
+function FotoGaleria({ fotos = [], fallback, titulo, colorHeader }) {
+  const [seleccionada, setSeleccionada] = useState(0)
+  const [lightbox, setLightbox] = useState(false)
+
+  const urls = fotos.length > 0 ? fotos.map(f => f.foto_url) : (fallback ? [fallback] : [])
+  if (!urls.length) return null
+
+  const esEmerald = colorHeader === 'emerald'
+  const borderColor  = esEmerald ? 'border-emerald-100' : 'border-gray-200'
+  const headerColor  = esEmerald ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 bg-gray-50'
+  const ringColor    = esEmerald ? 'ring-emerald-500' : 'ring-blue-500'
+
+  const idx = Math.min(seleccionada, urls.length - 1)
+
+  function anterior() { setSeleccionada(i => (i - 1 + urls.length) % urls.length) }
+  function siguiente() { setSeleccionada(i => (i + 1) % urls.length) }
+
+  return (
+    <>
+      <div className={`rounded-xl border overflow-hidden ${borderColor}`}>
+        {/* Header */}
+        <div className={`flex items-center justify-between px-4 py-2.5 ${headerColor}`}>
+          <p className="text-xs font-medium">{titulo}</p>
+          {urls.length > 1 && (
+            <span className="text-[10px] text-gray-400">{idx + 1} / {urls.length}</span>
+          )}
+        </div>
+
+        {/* Foto principal */}
+        <div className="relative bg-white group">
+          <img
+            src={urls[idx]}
+            alt={`${titulo} ${idx + 1}`}
+            className="w-full max-h-80 object-contain cursor-zoom-in"
+            onClick={() => setLightbox(true)}
+          />
+
+          {/* Flechas de navegación (solo con 2+ fotos) */}
+          {urls.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); anterior() }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ‹
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); siguiente() }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          {/* Zoom hint */}
+          <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[10px] bg-black/50 text-white px-2 py-0.5 rounded-full">Clic para ampliar</span>
+          </div>
+        </div>
+
+        {/* Tira de miniaturas (solo con 2+ fotos) */}
+        {urls.length > 1 && (
+          <div className="flex gap-2 p-2 overflow-x-auto bg-gray-950/5">
+            {urls.map((url, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSeleccionada(i)}
+                className={`flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden ring-2 transition-all
+                  ${i === idx ? `${ringColor} opacity-100` : 'ring-transparent opacity-50 hover:opacity-80'}`}
+              >
+                <img src={url} alt={`Miniatura ${i + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          onClick={() => setLightbox(false)}
+        >
+          {/* Cerrar */}
+          <button
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors z-10"
+            onClick={() => setLightbox(false)}
+          >
+            <X size={20} />
+          </button>
+
+          {/* Flechas lightbox */}
+          {urls.length > 1 && (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); anterior() }}
+                className="absolute left-4 text-white text-4xl bg-black/30 hover:bg-black/60 w-12 h-12 rounded-full flex items-center justify-center transition-colors z-10"
+              >
+                ‹
+              </button>
+              <button
+                onClick={e => { e.stopPropagation(); siguiente() }}
+                className="absolute right-4 text-white text-4xl bg-black/30 hover:bg-black/60 w-12 h-12 rounded-full flex items-center justify-center transition-colors z-10"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          <img
+            src={urls[idx]}
+            alt="Ampliada"
+            className="max-w-[90vw] max-h-[90vh] rounded-xl object-contain shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+
+          {/* Contador lightbox */}
+          {urls.length > 1 && (
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5">
+              {urls.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={e => { e.stopPropagation(); setSeleccionada(i) }}
+                  className={`w-2 h-2 rounded-full transition-all ${i === idx ? 'bg-white' : 'bg-white/40 hover:bg-white/70'}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function HallazgoDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -308,18 +490,22 @@ export default function HallazgoDetallePage() {
         </p>
       </div>
 
-      {/* Foto inicial */}
-      <div className="rounded-xl overflow-hidden border bg-gray-50">
-        <p className="text-xs text-gray-500 px-4 pt-3 font-medium">Foto del hallazgo</p>
-        <img src={h.foto_url} alt="Foto del hallazgo" className="w-full max-h-80 object-cover" />
-      </div>
+      {/* Fotos iniciales */}
+      <FotoGaleria
+        fotos={(h.fotos ?? []).filter(f => f.tipo === 'INICIAL')}
+        fallback={h.foto_url}
+        titulo="Fotos del hallazgo"
+        colorHeader="gray"
+      />
 
-      {/* Foto de cierre */}
-      {h.foto_despues_url && (
-        <div className="rounded-xl overflow-hidden border bg-emerald-50">
-          <p className="text-xs text-emerald-700 px-4 pt-3 font-medium">Foto de cierre</p>
-          <img src={h.foto_despues_url} alt="Foto de cierre" className="w-full max-h-80 object-cover" />
-        </div>
+      {/* Fotos de cierre */}
+      {(h.foto_despues_url || (h.fotos ?? []).some(f => f.tipo === 'CIERRE')) && (
+        <FotoGaleria
+          fotos={(h.fotos ?? []).filter(f => f.tipo === 'CIERRE')}
+          fallback={h.foto_despues_url}
+          titulo="Fotos de cierre"
+          colorHeader="emerald"
+        />
       )}
 
       <SeccionEstado hallazgo={h} mutCambiarEstado={mutCambiarEstado} />

@@ -162,51 +162,124 @@ async function importar(req, res) {
     return fail(res, 'ARCHIVO_INVALIDO', 'No se pudo leer el archivo')
   }
 
-  // Ordenar por nivel ascendente para que los padres existan primero
-  filas.sort((a, b) => Number(a.nivel || 0) - Number(b.nivel || 0))
+  // Separar filas por acción — filas sin acción explícita se ignoran
+  // Filas cuyo campo 'accion' empieza con '#' se tratan como comentarios y se omiten
+  const ACCIONES_VALIDAS = ['AGREGAR', 'MODIFICAR', 'ELIMINAR']
 
-  let creados = 0, omitidos = 0
-  const errores = []
-
+  const filasPorAccion = { ELIMINAR: [], MODIFICAR: [], AGREGAR: [] }
+  let omitidos = 0
   for (let i = 0; i < filas.length; i++) {
     const fila = filas[i]
-    const { codigo, descripcion, nivel, codigo_padre } = fila
-    const numFila = i + 2
+    const accion = String(fila.accion ?? '').trim()
 
-    if (!codigo || !descripcion || !nivel) {
-      errores.push({ fila: numFila, motivo: 'Faltan campos obligatorios (codigo, descripcion, nivel)' })
-      continue
-    }
-
-    const codigoNorm = String(codigo).trim().toUpperCase()
-
-    const existente = await prisma.ubicacionTecnica.findUnique({ where: { codigo: codigoNorm } })
-    if (existente) {
-      errores.push({ fila: numFila, motivo: `El código "${codigoNorm}" ya existe — omitido` })
+    // Línea de comentario → ignorar
+    if (accion.startsWith('#')) {
       omitidos++
       continue
     }
 
-    let padre_id = null
-    if (codigo_padre) {
-      const padre = await prisma.ubicacionTecnica.findUnique({ where: { codigo: String(codigo_padre).trim().toUpperCase() } })
-      if (!padre) {
-        errores.push({ fila: numFila, motivo: `Padre '${codigo_padre}' no encontrado` })
-        continue
-      }
-      const prefijo = padre.codigo.toUpperCase() + '-'
-      if (!codigoNorm.startsWith(prefijo)) {
-        errores.push({ fila: numFila, motivo: `El código "${codigoNorm}" debe comenzar con "${prefijo}"` })
-        continue
-      }
-      if (codigoNorm === prefijo) {
-        errores.push({ fila: numFila, motivo: `El código "${codigoNorm}" no tiene sufijo después del guion` })
-        continue
-      }
-      padre_id = padre.id
+    const accionUp = accion.toUpperCase()
+    if (!ACCIONES_VALIDAS.includes(accionUp)) {
+      omitidos++ // accion vacía o desconocida → ignorar silenciosamente
+    } else {
+      filasPorAccion[accionUp].push({ ...fila, _numFila: i + 2 })
     }
+  }
 
+  let creados = 0, modificados = 0, eliminados = 0
+  const errores = []
+  // omitidos ya fue inicializado en el bloque anterior
+
+  // ── 1. ELIMINAR (primero, sin importar hijos ni hallazgos) ────────────────
+  // Orden inverso de nivel para eliminar hijos antes que padres
+  const filasEliminar = filasPorAccion.ELIMINAR.sort((a, b) => Number(b.nivel || 0) - Number(a.nivel || 0))
+  for (const fila of filasEliminar) {
+    const codigoNorm = String(fila.codigo || '').trim().toUpperCase()
+    const { _numFila } = fila
+    if (!codigoNorm) {
+      errores.push({ fila: _numFila, accion: 'ELIMINAR', motivo: 'Falta el campo codigo' })
+      continue
+    }
     try {
+      const existente = await prisma.ubicacionTecnica.findUnique({ where: { codigo: codigoNorm } })
+      if (!existente) {
+        errores.push({ fila: _numFila, accion: 'ELIMINAR', motivo: `"${codigoNorm}" no encontrado` })
+        continue
+      }
+      // Desactivar recursivamente hijos también
+      await prisma.ubicacionTecnica.updateMany({
+        where: { codigo: { startsWith: codigoNorm } },
+        data: { activo: false },
+      })
+      eliminados++
+    } catch (e) {
+      errores.push({ fila: _numFila, accion: 'ELIMINAR', motivo: e.message })
+    }
+  }
+
+  // ── 2. MODIFICAR ─────────────────────────────────────────────────────────
+  for (const fila of filasPorAccion.MODIFICAR) {
+    const codigoNorm = String(fila.codigo || '').trim().toUpperCase()
+    const { descripcion, _numFila } = fila
+    if (!codigoNorm) {
+      errores.push({ fila: _numFila, accion: 'MODIFICAR', motivo: 'Falta el campo codigo' })
+      continue
+    }
+    try {
+      const existente = await prisma.ubicacionTecnica.findUnique({ where: { codigo: codigoNorm } })
+      if (!existente) {
+        errores.push({ fila: _numFila, accion: 'MODIFICAR', motivo: `"${codigoNorm}" no encontrado — usa AGREGAR para crearlo` })
+        continue
+      }
+      const data = { activo: true } // re-activar si estaba desactivado
+      if (descripcion) data.descripcion = String(descripcion).trim()
+      await prisma.ubicacionTecnica.update({ where: { codigo: codigoNorm }, data })
+      modificados++
+    } catch (e) {
+      errores.push({ fila: _numFila, accion: 'MODIFICAR', motivo: e.message })
+    }
+  }
+
+  // ── 3. AGREGAR (ordenar por nivel para que padres existan primero) ────────
+  const filasAgregar = filasPorAccion.AGREGAR.sort((a, b) => Number(a.nivel || 0) - Number(b.nivel || 0))
+  for (const fila of filasAgregar) {
+    const { codigo, descripcion, nivel, codigo_padre, _numFila } = fila
+    if (!codigo || !descripcion || !nivel) {
+      errores.push({ fila: _numFila, accion: 'AGREGAR', motivo: 'Faltan campos obligatorios (codigo, descripcion, nivel)' })
+      continue
+    }
+    const codigoNorm = String(codigo).trim().toUpperCase()
+    try {
+      const existente = await prisma.ubicacionTecnica.findUnique({ where: { codigo: codigoNorm } })
+      if (existente) {
+        // Si está inactivo, reactivarlo y actualizar descripción
+        if (!existente.activo) {
+          await prisma.ubicacionTecnica.update({
+            where: { codigo: codigoNorm },
+            data: { activo: true, descripcion: String(descripcion).trim() },
+          })
+          creados++
+        } else {
+          errores.push({ fila: _numFila, accion: 'AGREGAR', motivo: `"${codigoNorm}" ya existe — usa MODIFICAR para actualizar` })
+        }
+        continue
+      }
+
+      let padre_id = null
+      if (codigo_padre) {
+        const padre = await prisma.ubicacionTecnica.findUnique({ where: { codigo: String(codigo_padre).trim().toUpperCase() } })
+        if (!padre) {
+          errores.push({ fila: _numFila, accion: 'AGREGAR', motivo: `Padre '${codigo_padre}' no encontrado` })
+          continue
+        }
+        const prefijo = padre.codigo.toUpperCase() + '-'
+        if (!codigoNorm.startsWith(prefijo)) {
+          errores.push({ fila: _numFila, accion: 'AGREGAR', motivo: `"${codigoNorm}" debe comenzar con "${prefijo}"` })
+          continue
+        }
+        padre_id = padre.id
+      }
+
       await prisma.ubicacionTecnica.create({
         data: {
           codigo: codigoNorm,
@@ -217,11 +290,11 @@ async function importar(req, res) {
       })
       creados++
     } catch (e) {
-      errores.push({ fila: numFila, motivo: e.message })
+      errores.push({ fila: _numFila, accion: 'AGREGAR', motivo: e.message })
     }
   }
 
-  return ok(res, { creados, omitidos, errores })
+  return ok(res, { creados, modificados, eliminados, omitidos, errores })
 }
 
 async function exportarCsv(req, res) {
@@ -236,7 +309,9 @@ async function exportarCsv(req, res) {
 
   const NIVEL_LABEL = { 1: 'Planta', 2: 'Área', 3: 'Activo', 4: 'Componente' }
 
+  // Columna 'accion' vacía: el usuario la llena con AGREGAR / MODIFICAR / ELIMINAR antes de reimportar
   const filas = nodes.map(n => [
+    '',
     n.codigo,
     n.descripcion,
     n.nivel,
@@ -244,8 +319,26 @@ async function exportarCsv(req, res) {
     n.padre_id ? (codigoPorId[n.padre_id] ?? '') : '',
   ])
 
-  const header = 'codigo,descripcion,nivel,nivel_label,codigo_padre'
-  const csv = [header, ...filas.map(f => f.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\r\n')
+  // Bloque de comentarios al inicio — las líneas con '#' en columna accion son ignoradas al importar
+  const comentarios = [
+    '#,SGConfi Inspector — Archivo de Ubicaciones Técnicas,,,,,',
+    `#,Exportado: ${new Date().toLocaleString('es-CL')},,,,,`,
+    '#,------------------------------------------------------,,,,,',
+    '#,INSTRUCCIONES DE USO:,,,,,',
+    '#,Completa la columna ACCION antes de reimportar.,,,,,',
+    '#,  AGREGAR   → crea el registro (falla si ya existe activo),,,,,',
+    '#,  MODIFICAR → actualiza la descripcion del registro existente,,,,,',
+    '#,  ELIMINAR  → desactiva el registro y todos sus hijos (ignora hallazgos),,,,,',
+    '#,Si la columna ACCION esta vacia o contiene # la fila se ignora.,,,,,',
+    '#,------------------------------------------------------,,,,,',
+  ]
+
+  const header = 'accion,codigo,descripcion,nivel,nivel_label,codigo_padre'
+  const csv = [
+    ...comentarios,
+    header,
+    ...filas.map(f => f.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
+  ].join('\r\n')
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', 'attachment; filename="ubicaciones.csv"')

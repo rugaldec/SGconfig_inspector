@@ -60,24 +60,37 @@ async function fetchFotoBuffer(fotoUrl) {
   }
 }
 
-async function insertarFoto(doc, fotoUrl, titulo) {
-  if (!fotoUrl) return
+async function insertarFotos(doc, urls, titulo) {
+  if (!urls?.length) return
   sectionTitle(doc, titulo)
-  if (fotoUrl.toLowerCase().endsWith('.webp')) {
-    doc.fontSize(9).fillColor('#6b7280')
-       .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
-    return
-  }
-  const buffer = await fetchFotoBuffer(fotoUrl)
-  if (!buffer) return
-  try {
-    const maxW = PAGE_W - MARGIN * 2
-    const maxH = 220
-    // Sin x,y explícitos: PDFKit usa el cursor actual y lo avanza correctamente
-    doc.image(buffer, { fit: [maxW, maxH], align: 'center' })
-    doc.moveDown(0.6)
-  } catch {
-    doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía.')
+
+  const CONTENT_W = PAGE_W - MARGIN * 2
+  // Una sola foto → full width y más alta; varias → un poco más pequeñas
+  const maxH = urls.length === 1 ? 220 : 170
+
+  for (const url of urls) {
+    // Salto de página preventivo si no cabe la foto
+    if (doc.y + maxH + 20 > doc.page.height - 50) {
+      doc.addPage()
+    }
+
+    if (url.toLowerCase().endsWith('.webp')) {
+      doc.fontSize(9).fillColor('#6b7280')
+         .text('Foto en formato WebP no soportado en PDF. Ver en la aplicación.')
+      doc.moveDown(0.4)
+      continue
+    }
+
+    const buffer = await fetchFotoBuffer(url)
+    if (!buffer) continue
+
+    try {
+      // Sin coordenadas explícitas: pdfkit usa el cursor actual y lo avanza solo
+      doc.image(buffer, { fit: [CONTENT_W, maxH], align: 'center' })
+      doc.moveDown(0.6)
+    } catch {
+      doc.fontSize(9).fillColor('#6b7280').text('No se pudo incrustar la fotografía.')
+    }
   }
 }
 
@@ -153,8 +166,15 @@ async function generarPdfHallazgo(hallazgo, res) {
      .text(hallazgo.descripcion, MARGIN, doc.y, { width: CONTENT_W, lineGap: 3 })
 
   // ── FOTOGRAFÍAS ───────────────────────────────────────────────────────────────
-  await insertarFoto(doc, hallazgo.foto_url, 'Fotografía de Apertura')
-  await insertarFoto(doc, hallazgo.foto_despues_url, 'Fotografía de Cierre')
+  // Usar fotos de la tabla hallazgo_fotos si existen; si no, caer en los campos heredados
+  const fotosIniciales = hallazgo.fotos?.filter(f => f.tipo === 'INICIAL').map(f => f.foto_url) ?? []
+  const fotosCierre    = hallazgo.fotos?.filter(f => f.tipo === 'CIERRE').map(f => f.foto_url) ?? []
+
+  const urlsApertura = fotosIniciales.length ? fotosIniciales : (hallazgo.foto_url ? [hallazgo.foto_url] : [])
+  const urlsCierre   = fotosCierre.length    ? fotosCierre    : (hallazgo.foto_despues_url ? [hallazgo.foto_despues_url] : [])
+
+  await insertarFotos(doc, urlsApertura, `Fotografía${urlsApertura.length > 1 ? 's' : ''} de Apertura`)
+  await insertarFotos(doc, urlsCierre,   `Fotografía${urlsCierre.length > 1 ? 's' : ''} de Cierre`)
 
   // ── HISTORIAL DE ESTADOS ─────────────────────────────────────────────────────
   if (hallazgo.cambios_estado?.length) {
