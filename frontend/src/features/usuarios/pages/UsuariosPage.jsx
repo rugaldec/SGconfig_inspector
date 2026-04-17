@@ -93,6 +93,7 @@ export default function UsuariosPage() {
   const [editando, setEditando]       = useState(null)
   const [modalPwd, setModalPwd]       = useState(false)
   const [usuarioPwd, setUsuarioPwd]   = useState(null)
+  const [tab, setTab]                 = useState('activos')
   // disciplinas seleccionadas en el formulario (controlado manualmente)
   const [disciplinasSeleccionadas, setDisciplinasSeleccionadas] = useState([])
 
@@ -176,6 +177,10 @@ export default function UsuariosPage() {
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>
 
+  const activos   = usuarios?.filter(u => u.activo)  ?? []
+  const inactivos = usuarios?.filter(u => !u.activo) ?? []
+  const lista     = tab === 'activos' ? activos : inactivos
+
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
@@ -185,11 +190,36 @@ export default function UsuariosPage() {
         </Button>
       </div>
 
+      {/* Pestañas */}
+      <div className="flex gap-1 mb-4 border-b border-gray-200">
+        {[
+          { key: 'activos',   label: 'Activos',   count: activos.length },
+          { key: 'inactivos', label: 'Inactivos', count: inactivos.length },
+        ].map(({ key, label, count }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              tab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+            }`}>
+              {count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              {['Nombre', 'Email', 'Rol', 'Disciplinas', 'Activo', ''].map((h) => (
+              {['Nombre', 'Email', 'Rol', 'Disciplinas', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   {h}
                 </th>
@@ -197,7 +227,14 @@ export default function UsuariosPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {usuarios?.map((u) => (
+            {lista.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                  No hay usuarios {tab === 'activos' ? 'activos' : 'inactivos'}
+                </td>
+              </tr>
+            )}
+            {lista.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-800">{u.nombre}</td>
                 <td className="px-4 py-3 text-gray-500">{u.email}</td>
@@ -221,11 +258,6 @@ export default function UsuariosPage() {
                   ) : (
                     <span className="text-xs text-gray-300">—</span>
                   )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium ${u.activo ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {u.activo ? 'Activo' : 'Inactivo'}
-                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
