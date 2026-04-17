@@ -79,15 +79,25 @@ async function actualizar(req, res) {
   if (!plantilla) return fail(res, 'NO_ENCONTRADO', 'Plantilla no encontrada', 404)
 
   if (campos !== undefined) {
-    // Reemplazar campos en transacción
-    const actualizada = await prisma.$transaction([
-      prisma.campoPlantilla.deleteMany({ where: { plantilla_id: id } }),
-      prisma.plantillaVerificacion.update({
+    // Obtener IDs de campos actuales para borrar sus respuestas primero
+    // (respuestas_campo no tiene onDelete: Cascade en el schema)
+    const camposActuales = await prisma.campoPlantilla.findMany({
+      where: { plantilla_id: id },
+      select: { id: true },
+    })
+    const campoIds = camposActuales.map(c => c.id)
+
+    const actualizada = await prisma.$transaction(async (tx) => {
+      if (campoIds.length > 0) {
+        await tx.respuestaCampo.deleteMany({ where: { campo_id: { in: campoIds } } })
+      }
+      await tx.campoPlantilla.deleteMany({ where: { plantilla_id: id } })
+      return tx.plantillaVerificacion.update({
         where: { id },
         data: {
-          ...(nombre    !== undefined && { nombre: nombre.trim() }),
+          ...(nombre      !== undefined && { nombre: nombre.trim() }),
           ...(descripcion !== undefined && { descripcion: descripcion?.trim() || null }),
-          ...(activo    !== undefined && { activo }),
+          ...(activo      !== undefined && { activo }),
           campos: {
             create: campos.map((c, i) => ({
               etiqueta:       c.etiqueta.trim(),
@@ -99,9 +109,9 @@ async function actualizar(req, res) {
           },
         },
         include: { campos: { orderBy: { orden: 'asc' } } },
-      }),
-    ])
-    return ok(res, actualizada[1])
+      })
+    })
+    return ok(res, actualizada)
   }
 
   const actualizada = await prisma.plantillaVerificacion.update({
