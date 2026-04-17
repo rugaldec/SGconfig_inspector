@@ -66,7 +66,7 @@ function DisciplinasCheckboxes({ disciplinas, value = [], onChange }) {
   if (!disciplinas?.length) return <p className="text-sm text-gray-400 italic">No hay disciplinas activas</p>
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="border border-gray-200 rounded-xl p-2 max-h-36 overflow-y-auto flex flex-wrap gap-2">
       {disciplinas.map(d => {
         const checked = value.includes(d.id)
         return (
