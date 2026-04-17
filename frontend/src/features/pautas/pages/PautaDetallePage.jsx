@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   MapPin, Calendar, ClipboardCheck, History, PlayCircle,
   ToggleLeft, ToggleRight, Pencil, ChevronDown, ChevronRight,
-  Building2, Layers, Cpu, X, RefreshCw, ClipboardList,
+  Building2, Layers, Cpu, X, RefreshCw, ClipboardList, Camera,
 } from 'lucide-react'
 import { usePautaDetalle, useActualizarPauta, useProgramarEjecucion } from '../hooks/usePautas'
 import { useArbolUbicaciones } from '../../ubicaciones/hooks/useUbicaciones'
@@ -231,6 +231,10 @@ export default function PautaDetallePage() {
   const [ubtPlantillas, setUbtPlantillas] = useState({})        // { [ubicacion_tecnica_id]: plantillaId | '' }
   const [equipoPlantillas, setEquipoPlantillas] = useState({})  // { [grupoKey]: plantillaId } — solo para el selector visual del equipo
 
+  const [fotoFile, setFotoFile] = useState(null)
+  const [fotoPreview, setFotoPreview] = useState(null)
+  const fotoRef = useRef(null)
+
   const { data: pauta, isLoading } = usePautaDetalle(id)
   const { data: arbol = [] } = useArbolUbicaciones()
   const { data: plantillas } = usePlantillas(pauta?.disciplina?.id ? { disciplina_id: pauta.disciplina.id } : undefined)
@@ -283,6 +287,27 @@ export default function PautaDetallePage() {
 
   function toggleActivo() {
     actualizar.mutate({ id, datos: { activo: !pauta.activo } })
+  }
+
+  function handleFotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFotoFile(file)
+    setFotoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  function guardarFoto() {
+    if (!fotoFile) return
+    actualizar.mutate(
+      { id, datos: { foto: fotoFile } },
+      { onSuccess: () => { setFotoFile(null); setFotoPreview(null) } },
+    )
+  }
+
+  function cancelarFoto() {
+    setFotoFile(null)
+    setFotoPreview(null)
   }
 
   function onProgramar(data) {
@@ -353,7 +378,50 @@ export default function PautaDetallePage() {
     <div className="max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-3">
-        <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          {/* Foto pauta */}
+          <div className="flex-shrink-0">
+            <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
+            <div className="relative group">
+              {fotoPreview || pauta.foto_url ? (
+                <img
+                  src={fotoPreview ?? pauta.foto_url}
+                  alt=""
+                  className="w-16 h-16 rounded-xl object-cover border border-gray-200"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center">
+                  <Camera size={20} className="text-gray-300" />
+                </div>
+              )}
+              <button
+                onClick={() => fotoRef.current?.click()}
+                className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                title="Cambiar foto"
+              >
+                <Camera size={16} className="text-white" />
+              </button>
+            </div>
+            {fotoFile && (
+              <div className="flex gap-1 mt-1">
+                <button
+                  onClick={guardarFoto}
+                  disabled={actualizar.isPending}
+                  className="text-[10px] font-medium text-white bg-blue-600 hover:bg-blue-700 px-2 py-0.5 rounded-full transition-colors disabled:opacity-50"
+                >
+                  {actualizar.isPending ? '...' : 'Guardar'}
+                </button>
+                <button
+                  onClick={cancelarFoto}
+                  className="text-[10px] font-medium text-gray-500 hover:text-gray-700 px-2 py-0.5 rounded-full border border-gray-200 transition-colors"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">
               {pauta.disciplina?.nombre}
@@ -369,6 +437,7 @@ export default function PautaDetallePage() {
           <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-400">
             <MapPin size={12} />
             <span>{pauta._count?.ubts ?? 0} componentes · {pauta._count?.ejecuciones ?? 0} ejecuciones</span>
+          </div>
           </div>
         </div>
         <div className="flex flex-col gap-2 flex-shrink-0">
