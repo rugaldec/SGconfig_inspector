@@ -12,7 +12,7 @@ export default function PautasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [disciplinaFiltro, setDisciplinaFiltro] = useState('')
-  const [activo, setActivo] = useState(undefined)
+  const [tab, setTab] = useState('activas')
   const [pautaAEliminar, setPautaAEliminar] = useState(null)
   const [confirmarEliminacionTotal, setConfirmarEliminacionTotal] = useState(false)
 
@@ -36,10 +36,13 @@ export default function PautasPage() {
 
   const filtros = {}
   if (disciplinaActual) filtros.disciplina_id = disciplinaActual
-  if (activo !== undefined) filtros.activo = activo
 
   const { data, isLoading } = usePautas(filtros)
-  const { pautas = [] } = data ?? {}
+  const todasPautas = data?.pautas ?? []
+
+  const activas   = todasPautas.filter(p => p.activo)
+  const inactivas = todasPautas.filter(p => !p.activo)
+  const pautas    = tab === 'activas' ? activas : inactivas
 
   const esInspector = user?.rol === 'INSPECTOR'
   const esAdmin = user?.rol === 'ADMINISTRADOR'
@@ -73,8 +76,8 @@ export default function PautasPage() {
         )}
       </div>
 
-      {/* Filtros */}
-      <div className="flex gap-3 mb-4 flex-wrap">
+      {/* Filtro disciplina + pestañas */}
+      <div className="flex items-end justify-between gap-3 flex-wrap mb-0">
         {mostrarFiltro && (
           <select
             className="border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -87,40 +90,56 @@ export default function PautasPage() {
             ))}
           </select>
         )}
-        <select
-          className="border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          value={activo ?? ''}
-          onChange={e => setActivo(e.target.value === '' ? undefined : e.target.value === 'true')}
-        >
-          <option value="">Activas e inactivas</option>
-          <option value="true">Solo activas</option>
-          <option value="false">Solo inactivas</option>
-        </select>
+      </div>
+
+      {/* Pestañas */}
+      <div className="flex gap-1 mt-4 border-b border-gray-200">
+        {[
+          { key: 'activas',   label: 'Activas',   count: activas.length },
+          { key: 'inactivas', label: 'Inactivas', count: inactivas.length },
+        ].map(({ key, label, count }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {label}
+            <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+              tab === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+            }`}>
+              {count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       ) : (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="bg-white rounded-xl border overflow-hidden mt-4">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Nombre', 'Disciplina', 'UBTs', 'Ejecuciones', 'Estado', ''].map(h => (
+                {['Nombre', 'Disciplina', 'UBTs', 'Ejecuciones', ''].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pautas.map(p => (
-                <tr key={p.id} className={p.activo ? 'hover:bg-gray-50' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}>
+                <tr key={p.id} className="hover:bg-gray-50">
                   <td
-                    className={`px-4 py-3 font-medium cursor-pointer ${p.activo ? 'text-gray-800' : 'text-gray-400'}`}
+                    className="px-4 py-3 font-medium text-gray-800 cursor-pointer"
                     onClick={() => navigate(`/admin/pautas/${p.id}`)}
                   >
                     {p.nombre}
                   </td>
                   <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.activo ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-400'}`}>
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
                       {p.disciplina?.nombre}
                     </span>
                   </td>
@@ -129,13 +148,6 @@ export default function PautasPage() {
                   </td>
                   <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
                     {p._count?.ejecuciones ?? 0}
-                  </td>
-                  <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      p.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {p.activo ? 'Activa' : 'Inactiva'}
-                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
@@ -159,8 +171,8 @@ export default function PautasPage() {
               ))}
               {pautas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
-                    No hay pautas registradas
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
+                    No hay pautas {tab === 'activas' ? 'activas' : 'inactivas'}
                   </td>
                 </tr>
               )}
