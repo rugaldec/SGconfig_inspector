@@ -46,6 +46,7 @@ async function ejecucionesActivas(req, res) {
           id: true,
           nombre: true,
           descripcion: true,
+          foto_url: true,
           disciplina: { select: { id: true, nombre: true } },
           zona_funcional: { select: { id: true, codigo: true, descripcion: true } },
         },

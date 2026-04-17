@@ -5,7 +5,7 @@ import { useArbolUbicaciones } from '../ubicaciones/hooks/useUbicaciones'
 import { ESTADO_CONFIG, CRITICIDAD_CONFIG } from '../hallazgos/estadoMachine'
 import ContadorEstado from './components/ContadorEstado'
 import Spinner from '../../shared/components/ui/Spinner'
-import { Trophy, MapPin, TrendingUp } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, ClipboardCheck } from 'lucide-react'
 
 const ESTADO_COLORES = {
   ABIERTO:          'bg-blue-50 border-blue-200 text-blue-800',
@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const porCategoria = stats?.porCategoria ?? {}
   const rankingInspectores = stats?.rankingInspectores ?? []
   const rankingAreas = stats?.rankingAreas ?? []
+  const areasConInspecciones = stats?.areasConInspecciones ?? []
 
   return (
     <div className="space-y-6">
@@ -243,6 +244,65 @@ export default function DashboardPage() {
         </div>
 
       </div>
+
+      {/* Fila 3: Áreas con Inspecciones */}
+      {areasConInspecciones.length > 0 && (
+        <div className="bg-white rounded-xl border p-5">
+          <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <ClipboardCheck size={16} className="text-indigo-400" /> Áreas con Inspecciones
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {areasConInspecciones.map(area => {
+              const coberturaPct = area.items_total > 0
+                ? Math.round((area.items_insp / area.items_total) * 100)
+                : 0
+              return (
+                <div key={area.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800 truncate" title={area.descripcion}>
+                      {area.codigo}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{area.descripcion}</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {area.activas > 0 && (
+                      <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                        {area.activas} activa{area.activas !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {area.completadas > 0 && (
+                      <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
+                        {area.completadas} completada{area.completadas !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {area.vencidas > 0 && (
+                      <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
+                        {area.vencidas} vencida{area.vencidas !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  {area.items_total > 0 && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Cobertura ítems</span>
+                        <span className="font-medium">{coberturaPct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-indigo-400 rounded-full transition-all"
+                          style={{ width: `${coberturaPct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400">{area.items_insp}/{area.items_total} ítems inspeccionados</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

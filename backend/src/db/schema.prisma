@@ -253,6 +253,7 @@ model PautaInspeccion {
   zona_funcional    UbicacionTecnica? @relation("PautaZonaFuncional", fields: [zona_funcional_id], references: [id])
   zona_funcional_id String?
   activo            Boolean          @default(true)
+  foto_url          String?
   creado_por        Usuario          @relation("PautasCreadas", fields: [created_by], references: [id])
   created_by        String
   created_at        DateTime         @default(now())

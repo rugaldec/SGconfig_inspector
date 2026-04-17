@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ChevronDown, ClipboardCheck } from 'lucide-react'
+import { ChevronDown, ClipboardCheck, Camera, X } from 'lucide-react'
 import { nuevaPautaSchema } from '../schemas'
 import { useCrearPauta } from '../hooks/usePautas'
 import { useDisciplinas } from '../../disciplinas/hooks/useDisciplinas'
@@ -17,8 +17,11 @@ export default function NuevaPautaPage() {
   const { data: disciplinas } = useDisciplinas()
   const [ubts, setUbts] = useState([])
   const [ubtError, setUbtError] = useState(null)
-  const [ubtPlantillas, setUbtPlantillas] = useState({})       // { [ubicacion_tecnica_id]: plantillaId }
-  const [equipoPlantillas, setEquipoPlantillas] = useState({}) // { [grupoKey]: plantillaId }  — estado independiente del nivel equipo
+  const [ubtPlantillas, setUbtPlantillas] = useState({})
+  const [equipoPlantillas, setEquipoPlantillas] = useState({})
+  const [fotoFile, setFotoFile] = useState(null)
+  const [fotoPreview, setFotoPreview] = useState(null)
+  const fotoRef = useRef(null)
 
   const { register, handleSubmit, control, formState: { errors } } = useForm({
     resolver: zodResolver(nuevaPautaSchema),
@@ -65,18 +68,30 @@ export default function NuevaPautaPage() {
     return e
   }
 
+  function handleFotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFotoFile(file)
+    setFotoPreview(URL.createObjectURL(file))
+    e.target.value = ''
+  }
+
+  function quitarFoto() {
+    setFotoFile(null)
+    setFotoPreview(null)
+  }
+
   function onSubmit(data) {
     if (ubts.length === 0) { setUbtError('Agrega al menos una UBT'); return }
     setUbtError(null)
     const ubtsFinal = ubts.map(u => ({
       ...u,
-      // Prioridad: override explícito (incluyendo '') → valor del equipo → null
       plantilla_verif_id: ubtPlantillas[u.ubicacion_tecnica_id] !== undefined
         ? (ubtPlantillas[u.ubicacion_tecnica_id] || null)
         : (equipoPlantillas[getGrupoKey(u)] || null),
     }))
     crear.mutate(
-      { ...data, ubts: ubtsFinal },
+      { ...data, ubts: ubtsFinal, foto: fotoFile ?? undefined },
       { onSuccess: (pauta) => navigate(`/admin/pautas/${pauta.id}`) },
     )
   }
@@ -95,6 +110,35 @@ export default function NuevaPautaPage() {
             className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
             {...register('descripcion')}
           />
+        </div>
+
+        {/* Foto identificadora */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">
+            Foto identificadora <span className="text-gray-400 font-normal text-xs">(opcional)</span>
+          </label>
+          <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
+          {fotoPreview ? (
+            <div className="relative w-32 h-24 rounded-xl overflow-hidden border border-gray-200">
+              <img src={fotoPreview} alt="preview" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={quitarFoto}
+                className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-0.5 transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fotoRef.current?.click()}
+              className="w-32 h-24 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+            >
+              <Camera size={20} />
+              <span className="text-xs">Agregar foto</span>
+            </button>
+          )}
         </div>
 
         {/* Disciplina */}

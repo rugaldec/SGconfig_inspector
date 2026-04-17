@@ -23,6 +23,8 @@ async function stats(req, res) {
 
   const where = ubicacionIds ? { ubicacion_tecnica_id: { in: ubicacionIds } } : {}
 
+  const MIGRACION_PAUTAS = !!prisma.ejecucionPauta
+
   const [
     porEstado,
     porCriticidad,
@@ -30,6 +32,7 @@ async function stats(req, res) {
     rankingInspectores,
     totalHallazgos,
     hallazgosConUbicacion,
+    ejecucionesParaAreas,
   ] = await Promise.all([
     prisma.hallazgo.groupBy({ by: ['estado'], where, _count: { id: true } }),
     prisma.hallazgo.groupBy({ by: ['criticidad'], where, _count: { id: true } }),
@@ -65,6 +68,37 @@ async function stats(req, res) {
         }
       }
     }),
+    // Áreas con inspecciones activas
+    MIGRACION_PAUTAS
+      ? prisma.ejecucionPauta.findMany({
+          where: { estado: { in: ['PENDIENTE', 'EN_CURSO', 'COMPLETADA'] } },
+          select: {
+            id: true, estado: true, fecha_fin: true,
+            items: { select: { inspeccionado: true } },
+            pauta: {
+              select: {
+                ubts: {
+                  select: {
+                    ubicacion_tecnica: {
+                      select: {
+                        nivel: true,
+                        padre: {
+                          select: {
+                            id: true, codigo: true, descripcion: true, nivel: true,
+                            padre: { select: { id: true, codigo: true, descripcion: true, nivel: true } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { fecha_fin: 'desc' },
+          take: 200,
+        })
+      : Promise.resolve([]),
   ])
 
   // Enriquecer inspectores con nombre y activos
@@ -106,6 +140,36 @@ async function stats(req, res) {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
+  // Agrupar ejecuciones por área (nivel 2)
+  const ahora = new Date()
+  const areaInsp = {}
+  for (const e of ejecucionesParaAreas) {
+    const areas = new Set()
+    for (const ubt of e.pauta?.ubts ?? []) {
+      const ubi = ubt.ubicacion_tecnica
+      let area = null
+      if (ubi?.nivel === 3) area = ubi.padre        // padre es nivel 2
+      if (ubi?.nivel === 4) area = ubi.padre?.padre // abuelo es nivel 2
+      if (area?.nivel === 2) areas.add(area.id)
+      if (area?.nivel === 2 && !areaInsp[area.id]) {
+        areaInsp[area.id] = { id: area.id, codigo: area.codigo, descripcion: area.descripcion, activas: 0, completadas: 0, vencidas: 0, items_total: 0, items_insp: 0 }
+      }
+    }
+    const estadoReal = (e.estado !== 'COMPLETADA' && new Date(e.fecha_fin) < ahora) ? 'VENCIDA' : e.estado
+    const itemsTotal = e.items?.length ?? 0
+    const itemsInsp  = e.items?.filter(i => i.inspeccionado).length ?? 0
+    for (const areaId of areas) {
+      if (estadoReal === 'COMPLETADA') areaInsp[areaId].completadas++
+      else if (estadoReal === 'VENCIDA') areaInsp[areaId].vencidas++
+      else areaInsp[areaId].activas++
+      areaInsp[areaId].items_total += itemsTotal
+      areaInsp[areaId].items_insp  += itemsInsp
+    }
+  }
+  const areasConInspecciones = Object.values(areaInsp)
+    .sort((a, b) => (b.activas + b.completadas) - (a.activas + a.completadas))
+    .slice(0, 6)
+
   return ok(res, {
     total: totalHallazgos,
     porEstado: Object.fromEntries(porEstado.map(r => [r.estado, r._count.id])),
@@ -113,6 +177,7 @@ async function stats(req, res) {
     porCategoria: Object.fromEntries(porCategoria.map(r => [r.categoria, r._count.id])),
     rankingInspectores: rankingInspectoresEnriquecido,
     rankingAreas,
+    areasConInspecciones,
   })
 }
 

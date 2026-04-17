@@ -1,5 +1,6 @@
 const prisma = require('../db/client')
 const { ok, fail } = require('../utils/responseHelper')
+const storage = require('../utils/storageService')
 
 // Guarda: modelos no existen hasta aplicar la migración add_pautas_inspeccion
 const MIGRACION_OK = !!prisma.pautaInspeccion
@@ -88,7 +89,10 @@ async function listar(req, res) {
 
 async function crear(req, res) {
   if (!MIGRACION_OK) return migracionPendiente(res)
-  const { nombre, descripcion, disciplina_id, ubts } = req.body
+  const nombre      = req.body.nombre
+  const descripcion = req.body.descripcion
+  const disciplina_id = req.body.disciplina_id
+  const ubts = typeof req.body.ubts === 'string' ? JSON.parse(req.body.ubts) : req.body.ubts
 
   if (!nombre?.trim() || !disciplina_id || !ubts?.length) {
     return fail(res, 'DATOS_INCOMPLETOS', 'Nombre, disciplina y al menos una UBT son requeridos', 400)
@@ -105,11 +109,18 @@ async function crear(req, res) {
   if (ubtNodes.some(n => n.nivel < 3))
     return fail(res, 'UBT_INVALIDA', 'Las UBTs deben ser Activos (nivel 3) o Componentes (nivel 4)', 400)
 
+  let foto_url = null
+  if (req.file) {
+    const nombreArch = `pauta-${disciplina_id.slice(0, 8)}-${Date.now()}`
+    foto_url = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
+  }
+
   const pauta = await prisma.pautaInspeccion.create({
     data: {
       nombre: nombre.trim(),
       descripcion: descripcion?.trim() || null,
       disciplina_id,
+      foto_url,
       created_by: req.user.id,
       ubts: {
         create: ubts.map((u, i) => ({
@@ -161,7 +172,13 @@ async function detalle(req, res) {
 async function actualizar(req, res) {
   if (!MIGRACION_OK) return migracionPendiente(res)
   const { id } = req.params
-  const { nombre, descripcion, activo, ubts } = req.body
+  const nombre      = req.body.nombre
+  const descripcion = req.body.descripcion
+  const activoRaw   = req.body.activo
+  const activo      = activoRaw === 'true' ? true : activoRaw === 'false' ? false : activoRaw
+  const ubts        = req.body.ubts !== undefined
+    ? (typeof req.body.ubts === 'string' ? JSON.parse(req.body.ubts) : req.body.ubts)
+    : undefined
 
   const existe = await prisma.pautaInspeccion.findUnique({ where: { id } })
   if (!existe) return fail(res, 'NO_ENCONTRADO', 'Pauta no encontrada', 404)
@@ -195,6 +212,10 @@ async function actualizar(req, res) {
   if (nombre !== undefined) updateData.nombre = nombre.trim()
   if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null
   if (activo !== undefined) updateData.activo = activo
+  if (req.file) {
+    const nombreArch = `pauta-${id.slice(0, 8)}-${Date.now()}`
+    updateData.foto_url = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
+  }
 
   const pauta = await prisma.pautaInspeccion.update({ where: { id }, data: updateData })
   return ok(res, pauta)

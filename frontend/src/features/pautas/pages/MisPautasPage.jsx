@@ -129,6 +129,13 @@ function TarjetaEjecucion({ e, onClick }) {
       }`} />
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-3">
+          {e.pauta?.foto_url && (
+            <img
+              src={e.pauta.foto_url}
+              alt=""
+              className="w-12 h-12 rounded-xl object-cover border border-gray-100 flex-shrink-0"
+            />
+          )}
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-800 leading-tight truncate">{e.pauta?.nombre}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">

@@ -124,14 +124,29 @@ export default function PautasPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Nombre', 'Disciplina', 'UBTs', 'Ejecuciones', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                {['foto', 'Nombre', 'Disciplina', 'UBTs', 'Ejecuciones', 'acciones'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {h === 'foto' || h === 'acciones' ? '' : h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {pautas.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 w-10" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
+                    {p.foto_url ? (
+                      <img
+                        src={p.foto_url}
+                        alt=""
+                        className="w-9 h-9 rounded-lg object-cover border border-gray-100 cursor-pointer"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center cursor-pointer">
+                        <ClipboardCheck size={16} className="text-gray-300" />
+                      </div>
+                    )}
+                  </td>
                   <td
                     className="px-4 py-3 font-medium text-gray-800 cursor-pointer"
                     onClick={() => navigate(`/admin/pautas/${p.id}`)}
@@ -171,7 +186,7 @@ export default function PautasPage() {
               ))}
               {pautas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No hay pautas {tab === 'activas' ? 'activas' : 'inactivas'}
                   </td>
                 </tr>
