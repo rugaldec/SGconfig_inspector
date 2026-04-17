@@ -13,16 +13,13 @@ export const hallazgosApi = {
   crear: (formData) =>
     apiClient.post('/hallazgos', formData).then(r => r.data.data),
 
-  cambiarEstado: (id, estado, motivo, fotoDespues, numero_aviso_sap) => {
-    if (fotoDespues) {
-      const fd = new FormData()
-      fd.append('estado', estado)
-      if (motivo) fd.append('motivo', motivo)
-      if (numero_aviso_sap) fd.append('numero_aviso_sap', numero_aviso_sap)
-      fd.append('foto_despues', fotoDespues)
-      return apiClient.patch(`/hallazgos/${id}/estado`, fd).then(r => r.data.data)
-    }
-    return apiClient.patch(`/hallazgos/${id}/estado`, { estado, motivo, numero_aviso_sap }).then(r => r.data.data)
+  cambiarEstado: (id, estado, motivo, fotosCierre = [], numero_aviso_sap) => {
+    const fd = new FormData()
+    fd.append('estado', estado)
+    if (motivo) fd.append('motivo', motivo)
+    if (numero_aviso_sap) fd.append('numero_aviso_sap', numero_aviso_sap)
+    fotosCierre.forEach(f => fd.append('fotos_cierre', f))
+    return apiClient.patch(`/hallazgos/${id}/estado`, fd).then(r => r.data.data)
   },
 
   asignarSap: (id, numero_aviso_sap) =>

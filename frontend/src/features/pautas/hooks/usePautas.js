@@ -27,6 +27,30 @@ export function useActualizarPauta() {
   })
 }
 
+export function useDesactivarPauta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => pautasApi.desactivar(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pautas'] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'activas'] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'historial'] })
+    },
+  })
+}
+
+export function useEliminarPauta() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => pautasApi.eliminar(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pautas'] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'activas'] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'historial'] })
+    },
+  })
+}
+
 export function usePautaDetalle(id) {
   return useQuery({
     queryKey: ['pauta', id],
@@ -61,11 +85,30 @@ export function useEjecucionesActivas() {
   })
 }
 
+export function useEjecucionesHistorial() {
+  return useQuery({
+    queryKey: ['ejecuciones', 'historial'],
+    queryFn: pautasApi.historialEjecuciones,
+  })
+}
+
 export function useEjecucionDetalle(id) {
   return useQuery({
     queryKey: ['ejecucion', id],
     queryFn: () => pautasApi.detalleEjecucion(id),
     enabled: !!id,
+  })
+}
+
+export function useCerrarEjecucion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ejecucionId, motivo }) => pautasApi.cerrarEjecucion(ejecucionId, { motivo }),
+    onSuccess: (_, { ejecucionId }) => {
+      qc.invalidateQueries({ queryKey: ['ejecucion', ejecucionId] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'activas'] })
+      qc.invalidateQueries({ queryKey: ['ejecuciones', 'historial'] })
+    },
   })
 }
 

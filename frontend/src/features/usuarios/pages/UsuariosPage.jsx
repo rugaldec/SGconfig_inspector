@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useUsuarios, useCrearUsuario, useActualizarUsuario, useResetPassword } from '../hooks/useUsuarios'
@@ -22,7 +22,7 @@ const crearSchema = z.object({
     .regex(/\d/, 'Debe contener al menos un número')
     .regex(/[^A-Za-z0-9]/, 'Debe contener al menos un carácter especial (ej: !, @, #)'),
   rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
-  disciplina_id: z.string().optional(),
+  disciplinas: z.array(z.string()).optional(),
 })
 
 const editarSchema = z.object({
@@ -30,7 +30,7 @@ const editarSchema = z.object({
   email: z.string().email('Email inválido'),
   rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
   activo: z.boolean(),
-  disciplina_id: z.string().optional(),
+  disciplinas: z.array(z.string()).optional(),
 })
 
 const passwordSchema = z.object({
@@ -52,12 +52,49 @@ const ROL_BADGE = {
   INSPECTOR:     'bg-green-100 text-green-700',
 }
 
+// ── Selector de disciplinas con checkboxes ────────────────────────────────────
+
+function DisciplinasCheckboxes({ disciplinas, value = [], onChange }) {
+  function toggle(id) {
+    if (value.includes(id)) {
+      onChange(value.filter(v => v !== id))
+    } else {
+      onChange([...value, id])
+    }
+  }
+
+  if (!disciplinas?.length) return <p className="text-sm text-gray-400 italic">No hay disciplinas activas</p>
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {disciplinas.map(d => {
+        const checked = value.includes(d.id)
+        return (
+          <button
+            key={d.id}
+            type="button"
+            onClick={() => toggle(d.id)}
+            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+              checked
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+            }`}
+          >
+            {d.nombre}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function UsuariosPage() {
   const [modal, setModal]             = useState(false)
   const [editando, setEditando]       = useState(null)
   const [modalPwd, setModalPwd]       = useState(false)
   const [usuarioPwd, setUsuarioPwd]   = useState(null)
-  const [pwdOk, setPwdOk]            = useState(false)
+  // disciplinas seleccionadas en el formulario (controlado manualmente)
+  const [disciplinasSeleccionadas, setDisciplinasSeleccionadas] = useState([])
 
   const { data: usuarios, isLoading } = useUsuarios()
   const { data: disciplinas } = useDisciplinas()
@@ -67,9 +104,12 @@ export default function UsuariosPage() {
 
   // ── Formulario crear / editar ────────────────────────────────────────────────
   const schema = editando ? editarSchema : crearSchema
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   })
+
+  // Observar el rol seleccionado para mostrar/ocultar disciplinas
+  const rolActual = useWatch({ control, name: 'rol', defaultValue: 'INSPECTOR' })
 
   // ── Formulario contraseña ────────────────────────────────────────────────────
   const {
@@ -81,13 +121,16 @@ export default function UsuariosPage() {
 
   function abrirNuevo() {
     setEditando(null)
-    reset({ nombre: '', email: '', password: '', rol: 'INSPECTOR', disciplina_id: '' })
+    setDisciplinasSeleccionadas([])
+    reset({ nombre: '', email: '', password: '', rol: 'INSPECTOR' })
     setModal(true)
   }
 
   function abrirEditar(u) {
     setEditando(u)
-    reset({ nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo, disciplina_id: u.disciplina_id ?? '' })
+    const discIds = u.disciplinas?.map(d => d.disciplina_id ?? d.id) ?? []
+    setDisciplinasSeleccionadas(discIds)
+    reset({ nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo })
     setModal(true)
   }
 
@@ -95,33 +138,36 @@ export default function UsuariosPage() {
     setModal(false)
     crear.reset()
     actualizar.reset()
+    setDisciplinasSeleccionadas([])
   }
 
   function abrirCambiarPwd(u) {
     setUsuarioPwd(u)
-    setPwdOk(false)
     resetPwdForm()
     resetPwd.reset()
     setModalPwd(true)
   }
 
   function cerrarPwd() {
+    if (resetPwd.isPending) return
     setModalPwd(false)
+    resetPwd.reset()
   }
 
   function onSubmit(data) {
+    const payload = {
+      ...data,
+      disciplinas: (rolActual === 'INSPECTOR' || rolActual === 'SUPERVISOR') ? disciplinasSeleccionadas : [],
+    }
     if (editando) {
-      actualizar.mutate({ id: editando.id, datos: data }, { onSuccess: cerrar })
+      actualizar.mutate({ id: editando.id, datos: payload }, { onSuccess: cerrar })
     } else {
-      crear.mutate(data, { onSuccess: cerrar })
+      crear.mutate(payload, { onSuccess: cerrar })
     }
   }
 
   function onSubmitPwd({ password }) {
-    resetPwd.mutate(
-      { id: usuarioPwd.id, password },
-      { onSuccess: () => setPwdOk(true) }
-    )
+    resetPwd.mutate({ id: usuarioPwd.id, password })
   }
 
   const mutError = editando
@@ -143,7 +189,7 @@ export default function UsuariosPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              {['Nombre', 'Email', 'Rol', 'Disciplina', 'Activo', ''].map((h) => (
+              {['Nombre', 'Email', 'Rol', 'Disciplinas', 'Activo', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   {h}
                 </th>
@@ -161,9 +207,20 @@ export default function UsuariosPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  {u.disciplina
-                    ? <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">{u.disciplina.nombre}</span>
-                    : <span className="text-xs text-gray-300">—</span>}
+                  {u.disciplinas?.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {u.disciplinas.map(d => (
+                        <span
+                          key={d.disciplina_id ?? d.id}
+                          className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium"
+                        >
+                          {d.disciplina?.nombre ?? d.nombre}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs font-medium ${u.activo ? 'text-emerald-600' : 'text-red-500'}`}>
@@ -220,20 +277,18 @@ export default function UsuariosPage() {
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">
-              Disciplina <span className="text-gray-400 text-xs">(solo inspectores)</span>
-            </label>
-            <select
-              className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              {...register('disciplina_id')}
-            >
-              <option value="">Sin disciplina</option>
-              {disciplinas?.map(d => (
-                <option key={d.id} value={d.id}>{d.nombre}</option>
-              ))}
-            </select>
-          </div>
+          {(rolActual === 'INSPECTOR' || rolActual === 'SUPERVISOR') && (
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium text-gray-700">
+                Disciplinas <span className="text-gray-400 text-xs">(puede seleccionar varias)</span>
+              </label>
+              <DisciplinasCheckboxes
+                disciplinas={disciplinas}
+                value={disciplinasSeleccionadas}
+                onChange={setDisciplinasSeleccionadas}
+              />
+            </div>
+          )}
 
           {editando && (
             <div className="flex items-center gap-2">
@@ -256,12 +311,19 @@ export default function UsuariosPage() {
 
       {/* ── Modal cambiar contraseña ──────────────────────────────────────────── */}
       <Modal open={modalPwd} onClose={cerrarPwd} title="Cambiar Contraseña">
-        {pwdOk ? (
-          <div className="py-6 text-center space-y-3">
-            <div className="text-4xl">✅</div>
-            <p className="text-sm font-medium text-gray-700">
-              Contraseña actualizada correctamente para <span className="font-semibold">{usuarioPwd?.nombre}</span>
-            </p>
+        {resetPwd.isSuccess ? (
+          <div className="py-6 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+              <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-base font-semibold text-gray-800">Contraseña actualizada</p>
+              <p className="text-sm text-gray-500 mt-1">
+                La contraseña de <span className="font-medium text-gray-700">{usuarioPwd?.nombre}</span> fue cambiada correctamente.
+              </p>
+            </div>
             <Button size="full" onClick={cerrarPwd}>Cerrar</Button>
           </div>
         ) : (

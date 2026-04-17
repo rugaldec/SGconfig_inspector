@@ -44,9 +44,30 @@ export default function SelectorUBTMulti({ value = [], onChange, error }) {
         codigo: sel.n4.codigo,
         descripcion: sel.n4.descripcion,
         orden: value.length + 1,
+        activo_id: sel.n3?.id ?? null,
+        activo_codigo: sel.n3?.codigo ?? null,
+        activo_descripcion: sel.n3?.descripcion ?? null,
       },
     ])
     setSel(s => ({ ...s, n4: null }))
+  }
+
+  function agregarEquipo() {
+    if (!sel.n3) return
+    const yaTiene = value.some(u => u.ubicacion_tecnica_id === sel.n3.id)
+    if (yaTiene) return
+    onChange([
+      ...value,
+      {
+        ubicacion_tecnica_id: sel.n3.id,
+        codigo: sel.n3.codigo,
+        descripcion: sel.n3.descripcion,
+        orden: value.length + 1,
+        activo_id: sel.n3.id,          // self-referential: el item ES el activo
+        activo_codigo: sel.n3.codigo,
+        activo_descripcion: sel.n3.descripcion,
+      },
+    ])
   }
 
   function agregarTodosDelActivo() {
@@ -58,6 +79,9 @@ export default function SelectorUBTMulti({ value = [], onChange, error }) {
         codigo: n.codigo,
         descripcion: n.descripcion,
         orden: value.length + i + 1,
+        activo_id: sel.n3.id,
+        activo_codigo: sel.n3.codigo,
+        activo_descripcion: sel.n3.descripcion,
       }))
     onChange([...value, ...nuevos])
   }
@@ -78,26 +102,42 @@ export default function SelectorUBTMulti({ value = [], onChange, error }) {
         {sel.n1 && <SelectNivel label={NIVEL_LABEL[2]} value={sel.n2?.id ?? ''} onChange={pickN2} opciones={zonasFunc} placeholder="Área..." />}
         {sel.n2 && <SelectNivel label={NIVEL_LABEL[3]} value={sel.n3?.id ?? ''} onChange={pickN3} opciones={equipos} placeholder="Activo..." />}
         {sel.n3 && (
-          <div className="space-y-1.5">
-            <SelectNivel label={NIVEL_LABEL[4]} value={sel.n4?.id ?? ''} onChange={pickN4} opciones={subEquipos} placeholder="Componente..." highlight />
-            <div className="flex gap-2">
+          <div className="space-y-2">
+            {/* Nivel equipo */}
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
               <button
                 type="button"
-                onClick={agregarSeleccion}
-                disabled={!sel.n4}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                onClick={agregarEquipo}
+                disabled={value.some(u => u.ubicacion_tecnica_id === sel.n3.id)}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                <Plus size={12} /> Agregar componente
+                <Plus size={12} /> Agregar equipo
               </button>
-              {subEquipos.length > 0 && (
+              <span className="text-xs text-gray-400">o elige componentes individuales:</span>
+            </div>
+
+            {/* Nivel componente */}
+            <div className="space-y-1.5">
+              <SelectNivel label={NIVEL_LABEL[4]} value={sel.n4?.id ?? ''} onChange={pickN4} opciones={subEquipos} placeholder="Componente..." highlight />
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={agregarTodosDelActivo}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                  onClick={agregarSeleccion}
+                  disabled={!sel.n4}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Plus size={12} /> Agregar todos del activo ({subEquipos.length})
+                  <Plus size={12} /> Agregar componente
                 </button>
-              )}
+                {subEquipos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={agregarTodosDelActivo}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                  >
+                    <Plus size={12} /> Agregar todos ({subEquipos.length})
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -110,12 +150,17 @@ export default function SelectorUBTMulti({ value = [], onChange, error }) {
             UBTs seleccionadas ({value.length})
           </div>
           <div className="divide-y max-h-48 overflow-y-auto">
-            {value.map((u, i) => (
+            {value.map((u, i) => {
+              const esEquipo = u.activo_id === u.ubicacion_tecnica_id
+              return (
               <div key={u.ubicacion_tecnica_id} className="flex items-center gap-2 px-3 py-2">
                 <span className="text-xs text-gray-400 w-5 flex-shrink-0">{i + 1}</span>
-                <MapPin size={12} className="text-blue-400 flex-shrink-0" />
+                <MapPin size={12} className={esEquipo ? 'text-amber-400 flex-shrink-0' : 'text-blue-400 flex-shrink-0'} />
                 <span className="text-xs font-mono text-gray-500 flex-shrink-0">{u.codigo}</span>
                 <span className="text-xs text-gray-700 flex-1 truncate">{u.descripcion}</span>
+                {esEquipo && (
+                  <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded shrink-0">EQUIPO</span>
+                )}
                 <button
                   type="button"
                   onClick={() => quitar(u.ubicacion_tecnica_id)}
@@ -124,7 +169,8 @@ export default function SelectorUBTMulti({ value = [], onChange, error }) {
                   <X size={14} />
                 </button>
               </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

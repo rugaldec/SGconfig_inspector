@@ -14,20 +14,29 @@ const upload = multer({
   },
 })
 
-// Middleware que wrappea multer y formatea el error
+// Middleware para una sola foto
 function uploadFoto(campo) {
   return (req, res, next) => {
     upload.single(campo)(req, res, (err) => {
       if (!err) return next()
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return fail(res, 'ARCHIVO_MUY_GRANDE', 'La foto no puede superar 10 MB', 400)
-      }
-      if (err.message === 'MIME_INVALIDO') {
-        return fail(res, 'MIME_INVALIDO', 'Solo se aceptan imágenes JPEG, PNG o WebP', 400)
-      }
+      if (err.code === 'LIMIT_FILE_SIZE') return fail(res, 'ARCHIVO_MUY_GRANDE', 'La foto no puede superar 10 MB', 400)
+      if (err.message === 'MIME_INVALIDO') return fail(res, 'MIME_INVALIDO', 'Solo se aceptan imágenes JPEG, PNG o WebP', 400)
       next(err)
     })
   }
 }
 
-module.exports = { uploadFoto }
+// Middleware para múltiples fotos (array)
+function uploadFotos(campo, maxCount = 5) {
+  return (req, res, next) => {
+    upload.array(campo, maxCount)(req, res, (err) => {
+      if (!err) return next()
+      if (err.code === 'LIMIT_FILE_SIZE') return fail(res, 'ARCHIVO_MUY_GRANDE', 'Una foto no puede superar 10 MB', 400)
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') return fail(res, 'DEMASIADAS_FOTOS', `Se permiten máximo ${maxCount} fotos`, 400)
+      if (err.message === 'MIME_INVALIDO') return fail(res, 'MIME_INVALIDO', 'Solo se aceptan imágenes JPEG, PNG o WebP', 400)
+      next(err)
+    })
+  }
+}
+
+module.exports = { uploadFoto, uploadFotos }

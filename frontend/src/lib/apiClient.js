@@ -1,12 +1,15 @@
 import axios from 'axios'
 
 let accessToken = null
+let simulatedRole = null
 let isRefreshing = false
 let refreshQueue = []
 
 export function setToken(token) { accessToken = token }
 export function getToken() { return accessToken }
 export function clearToken() { accessToken = null }
+export function setSimulateHeader(rol) { simulatedRole = rol }
+export function clearSimulateHeader() { simulatedRole = null }
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -15,6 +18,7 @@ const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
+  if (simulatedRole) config.headers['X-Simulate-Role'] = simulatedRole
   return config
 })
 

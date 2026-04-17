@@ -116,4 +116,95 @@ async function stats(req, res) {
   })
 }
 
-module.exports = { stats }
+async function statsDisciplina(req, res) {
+  const MIGRACION_OK = !!prisma.ejecucionPauta
+  if (!MIGRACION_OK) {
+    return ok(res, {
+      disciplinas: [], inspecciones: { activas: 0, atrasadas: 0, completadas: 0 },
+      hallazgos: { porEstado: {}, porCriticidad: {}, total: 0 }, ejecucionesActivas: [],
+    })
+  }
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id: req.user.id },
+    select: { disciplinas: { select: { disciplina: { select: { id: true, nombre: true } } } } },
+  })
+
+  const disciplinas = usuario?.disciplinas.map(d => d.disciplina) ?? []
+  const disciplinaIds = disciplinas.map(d => d.id)
+
+  if (!disciplinaIds.length) {
+    return ok(res, {
+      disciplinas: [], inspecciones: { activas: 0, atrasadas: 0, completadas: 0 },
+      hallazgos: { porEstado: {}, porCriticidad: {}, total: 0 }, ejecucionesActivas: [],
+    })
+  }
+
+  const ahora = new Date()
+
+  const [countActivas, countAtrasadas, countCompletadas, hallazgosEstado, hallazgosCriticidad, pautaUBTs, ejecuciones] =
+    await Promise.all([
+      prisma.ejecucionPauta.count({
+        where: { pauta: { disciplina_id: { in: disciplinaIds } }, estado: { in: ['PENDIENTE', 'EN_CURSO'] }, fecha_fin: { gte: ahora } },
+      }),
+      prisma.ejecucionPauta.count({
+        where: { pauta: { disciplina_id: { in: disciplinaIds } }, estado: { in: ['PENDIENTE', 'EN_CURSO'] }, fecha_fin: { lt: ahora } },
+      }),
+      prisma.ejecucionPauta.count({
+        where: { pauta: { disciplina_id: { in: disciplinaIds } }, estado: 'COMPLETADA' },
+      }),
+      // hallazgos por estado: los que tienen ítems vinculados a pautas de la disciplina
+      prisma.hallazgo.groupBy({
+        by: ['estado'],
+        where: { item_ejecucion: { ejecucion: { pauta: { disciplina_id: { in: disciplinaIds } } } } },
+        _count: { _all: true },
+      }),
+      prisma.hallazgo.groupBy({
+        by: ['criticidad'],
+        where: { item_ejecucion: { ejecucion: { pauta: { disciplina_id: { in: disciplinaIds } } } } },
+        _count: { _all: true },
+      }),
+      prisma.pautaUBT.findMany({
+        where: { pauta: { disciplina_id: { in: disciplinaIds } } },
+        select: { ubicacion_tecnica_id: true },
+        distinct: ['ubicacion_tecnica_id'],
+      }),
+      prisma.ejecucionPauta.findMany({
+        where: {
+          pauta: { disciplina_id: { in: disciplinaIds } },
+          estado: { in: ['PENDIENTE', 'EN_CURSO'] },
+        },
+        include: {
+          pauta: { select: { id: true, nombre: true, disciplina: { select: { id: true, nombre: true } } } },
+          _count: { select: { items: true } },
+          items: { select: { inspeccionado: true } },
+        },
+        orderBy: { fecha_fin: 'asc' },
+      }),
+    ])
+
+  const porEstado     = Object.fromEntries(hallazgosEstado.map(h => [h.estado, h._count._all]))
+  const porCriticidad = Object.fromEntries(hallazgosCriticidad.map(h => [h.criticidad, h._count._all]))
+  const total         = Object.values(porEstado).reduce((a, b) => a + b, 0)
+
+  const ejecucionesEnriquecidas = ejecuciones.map(e => ({
+    id:         e.id,
+    fecha_fin:  e.fecha_fin,
+    fecha_inicio: e.fecha_inicio,
+    pauta:      e.pauta,
+    estado:     new Date(e.fecha_fin) < ahora ? 'ATRASADA' : e.estado,
+    cobertura:  {
+      inspeccionados: e.items.filter(i => i.inspeccionado).length,
+      total: e._count.items,
+    },
+  }))
+
+  return ok(res, {
+    disciplinas,
+    inspecciones: { activas: countActivas, atrasadas: countAtrasadas, completadas: countCompletadas },
+    hallazgos: { porEstado, porCriticidad, total },
+    ejecucionesActivas: ejecucionesEnriquecidas,
+  })
+}
+
+module.exports = { stats, statsDisciplina }

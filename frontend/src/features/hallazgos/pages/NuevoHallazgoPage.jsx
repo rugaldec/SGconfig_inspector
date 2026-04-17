@@ -31,7 +31,7 @@ export default function NuevoHallazgoPage() {
     ? `/inspector/ejecuciones/${ejecucionId}`
     : `/supervisor/ejecuciones/${ejecucionId}`
 
-  const [foto, setFoto] = useState(null)
+  const [fotos, setFotos] = useState([])
   const [fotoError, setFotoError] = useState(null)
   const [ubicacion, setUbicacion] = useState(null)
   const [success, setSuccess] = useState(false)
@@ -41,11 +41,11 @@ export default function NuevoHallazgoPage() {
   })
 
   async function onSubmit(data) {
-    if (!foto) { setFotoError('La foto es obligatoria'); return }
+    if (!fotos.length) { setFotoError('Al menos una foto es obligatoria'); return }
     setFotoError(null)
 
     if (!isOnline) {
-      await enqueue({ ...data, foto, ubicacion })
+      await enqueue({ ...data, foto: fotos[0], ubicacion })
       setSuccess(true)
       setTimeout(() => navigate(successRedirect), 1500)
       return
@@ -56,7 +56,7 @@ export default function NuevoHallazgoPage() {
     fd.append('descripcion', data.descripcion)
     fd.append('criticidad', data.criticidad)
     fd.append('categoria', data.categoria)
-    fd.append('foto', foto)
+    fotos.forEach(f => fd.append('fotos', f))
 
     crearHallazgo.mutate(fd, {
       onSuccess: (hallazgo) => {
@@ -125,12 +125,13 @@ export default function NuevoHallazgoPage() {
           />
         </div>
 
-        {/* Foto */}
+        {/* Fotos */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Foto del Hallazgo
+            Fotos del Hallazgo
+            <span className="ml-1.5 text-xs text-gray-400 font-normal">— hasta 5 fotos</span>
           </label>
-          <CamaraInput onChange={setFoto} error={fotoError} />
+          <CamaraInput fotos={fotos} onChange={setFotos} error={fotoError} />
         </div>
 
         {/* Descripción */}

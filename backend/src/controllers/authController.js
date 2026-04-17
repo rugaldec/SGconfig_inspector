@@ -99,9 +99,29 @@ function logout(req, res) {
 async function me(req, res) {
   const user = await prisma.usuario.findUnique({
     where: { id: req.user.id },
-    select: { id: true, nombre: true, email: true, rol: true, activo: true },
+    select: {
+      id: true,
+      nombre: true,
+      email: true,
+      rol: true,
+      activo: true,
+      // Si es inspector, incluir sus disciplinas
+      disciplinas: {
+        select: {
+          disciplina_id: true,
+          disciplina: { select: { id: true, nombre: true } },
+        },
+      },
+    },
   })
   if (!user) return fail(res, 'NOT_FOUND', 'Usuario no encontrado', 404)
+
+  // Para no-inspectores, remover el array vacío de disciplinas
+  if (user.rol !== 'INSPECTOR') {
+    const { disciplinas, ...rest } = user
+    return ok(res, rest)
+  }
+
   return ok(res, user)
 }
 

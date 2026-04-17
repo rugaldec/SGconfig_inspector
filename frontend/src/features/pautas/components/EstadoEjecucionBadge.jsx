@@ -1,8 +1,9 @@
 const CONFIG = {
-  PENDIENTE:  { label: 'Pendiente',  cls: 'bg-gray-100 text-gray-600' },
-  EN_CURSO:   { label: 'En Curso',   cls: 'bg-blue-100 text-blue-700' },
-  COMPLETADA: { label: 'Completada', cls: 'bg-emerald-100 text-emerald-700' },
-  VENCIDA:    { label: 'Vencida',    cls: 'bg-red-100 text-red-600' },
+  PENDIENTE:    { label: 'Pendiente',     cls: 'bg-gray-100 text-gray-600' },
+  EN_CURSO:     { label: 'En Curso',      cls: 'bg-blue-100 text-blue-700' },
+  COMPLETADA:   { label: 'Completada',    cls: 'bg-emerald-100 text-emerald-700' },
+  VENCIDA:      { label: 'Vencida',       cls: 'bg-red-100 text-red-600' },
+  NO_EJECUTADA: { label: 'No Ejecutada',  cls: 'bg-orange-100 text-orange-700' },
 }
 
 export default function EstadoEjecucionBadge({ estado }) {

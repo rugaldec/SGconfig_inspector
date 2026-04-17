@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, AlertCircle } from 'lucide-react'
+import { ChevronRight, AlertCircle, RefreshCw } from 'lucide-react'
 import EstadoEjecucionBadge from './EstadoEjecucionBadge'
 import ProgresoPauta from './ProgresoPauta'
 
@@ -13,7 +13,7 @@ export default function EjecucionRow({ ejecucion, pautaId }) {
   return (
     <tr
       className="hover:bg-gray-50 cursor-pointer"
-      onClick={() => navigate(`/supervisor/ejecuciones/${ejecucion.id}`)}
+      onClick={() => navigate(`/admin/ejecuciones/${ejecucion.id}`)}
     >
       <td className="px-4 py-3 text-sm text-gray-700">
         <div className="flex items-center gap-1.5">
@@ -49,7 +49,19 @@ export default function EjecucionRow({ ejecucion, pautaId }) {
           : <span className="text-gray-300">—</span>}
       </td>
       <td className="px-4 py-3 text-sm text-gray-500">
-        {ejecucion.creado_por?.nombre}
+        <div>{ejecucion.creado_por?.nombre}</div>
+        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+          {ejecucion.origen === 'AUTO' && (
+            <span className="inline-flex items-center gap-0.5 text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">
+              <RefreshCw size={9} /> Auto
+            </span>
+          )}
+          {ejecucion.relanzamiento_auto && (
+            <span className="text-xs text-blue-500">
+              Ronda {ejecucion.numero_ronda}{ejecucion.max_ejecuciones ? `/${ejecucion.max_ejecuciones}` : ''}
+            </span>
+          )}
+        </div>
       </td>
       <td className="px-4 py-3">
         <ChevronRight size={15} className="text-gray-400" />

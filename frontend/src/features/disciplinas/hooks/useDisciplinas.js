@@ -31,3 +31,35 @@ export function useEliminarDisciplina() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['disciplinas'] }),
   })
 }
+
+export function useUsuariosDisciplina(disciplinaId) {
+  return useQuery({
+    queryKey: ['disciplina', disciplinaId, 'usuarios'],
+    queryFn: () => disciplinasApi.listarUsuarios(disciplinaId),
+    enabled: !!disciplinaId,
+  })
+}
+
+export function useAsignarUsuario(disciplinaId) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (usuario_id) => disciplinasApi.asignarUsuario(disciplinaId, usuario_id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['disciplina', disciplinaId, 'usuarios'] })
+      qc.invalidateQueries({ queryKey: ['disciplinas'] })
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+}
+
+export function useQuitarUsuario(disciplinaId) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (usuarioId) => disciplinasApi.quitarUsuario(disciplinaId, usuarioId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['disciplina', disciplinaId, 'usuarios'] })
+      qc.invalidateQueries({ queryKey: ['disciplinas'] })
+      qc.invalidateQueries({ queryKey: ['usuarios'] })
+    },
+  })
+}

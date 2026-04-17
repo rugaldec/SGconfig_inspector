@@ -351,9 +351,20 @@ ABIERTO → EN_GESTION → PENDIENTE_CIERRE → CERRADO
 
 Estados terminales (no reversibles): `CERRADO`, `RECHAZADO`
 
+### Fotos de Hallazgo
+
+- **Al crear:** hasta 5 fotos (campo `fotos[]`). Primera foto se guarda también en `foto_url` (backward compat).
+- **Al cerrar:** hasta 5 fotos de cierre (campo `fotos_cierre[]` en FormData). Se guardan en tabla `HallazgoFoto` con `tipo: CIERRE`.
+- **Tabla relacional:** `HallazgoFoto { id, hallazgo_id, foto_url, tipo: INICIAL|CIERRE, orden }`.
+- **Backward compat:** `foto_url` / `foto_despues_url` en la tabla `hallazgos` siguen activos para notificaciones email.
+- **Componente:** `CamaraInput` — props: `fotos = [], onChange, error, max = 5`. Muestra hero grande + tira horizontal de miniaturas.
+- **Galería en detalle:** `FotoGaleria` (inline en `HallazgoDetallePage`): hero con fondo blanco + tira de miniaturas + lightbox con flechas de navegación.
+
 ### Exportar PDF
 
 `GET /api/hallazgos/:id/pdf` — genera PDF server-side con pdfkit, streaming directo. Inspector solo puede exportar los suyos. Frontend usa axios blob + `<a>` programático para respetar el Bearer token.
+
+**pdfkit — regla crítica:** `doc.y` es read-only. Siempre insertar imágenes en modo flujo: `doc.image(buffer, { fit: [W, H], align: 'center' })`. Nunca usar coordenadas absolutas para imágenes.
 
 ### Quién puede crear hallazgos
 
@@ -405,7 +416,8 @@ Todas las respuestas siguen la estructura:
 
 - `AV-YYYY-NNNNNN` nunca se reutiliza, ni si el hallazgo se elimina
 - Inspector no puede modificar un hallazgo una vez enviado
-- Foto obligatoria para crear hallazgo
+- **Hasta 5 fotos** al crear hallazgo (mínimo 1 obligatoria). Fotos adicionales en tabla `HallazgoFoto (tipo: INICIAL)`.
+- **Hasta 5 fotos de cierre** al pasar a CERRADO. Se guardan en `HallazgoFoto (tipo: CIERRE)`.
 - Criticidad obligatoria
 - Hallazgo cerrado no puede reabrirse — crear uno nuevo
 - Comentarios inmutables (auditoría)
@@ -596,6 +608,63 @@ Antes de considerar una feature lista, verificar:
 - El path del schema siempre: `--schema=src/db/schema.prisma` (no `scr`)
 - Nginx necesita `X-Forwarded-For` en proxy_set_header para que LogAcceso capture la IP real
 
+### Sesión 3 — 2026-04-16
+
+#### Bugs corregidos
+
+- **Checklist equipo→componentes no propagaba** en `PautaDetallePage` y `NuevaPautaPage`:
+  - `setPlantillaEquipo(grupoKey, val, grupoItems)` ahora actualiza `ubtPlantillas` directamente para todos los ítems del grupo. Eliminada la lógica de tres estados frágil.
+  - `abrirEdicion` pre-carga `ubtPlantillas` con TODOS los componentes (`''` si sin plantilla).
+  - `guardarUbts` simplificado: `plantilla_verif_id: ubtPlantillas[id] || null`.
+- **Backend no guardaba `plantilla_verif_id`** al actualizar UBTs: agregado en `createMany` de `pautasController.actualizar`.
+- **Prisma no devolvía `campos` del checklist** en `detalleEjecucion`: cambiado de `select: { campos: { orderBy } }` a `include: { campos: { select: {...}, orderBy } }`.
+- **Items de ejecución no agrupados por equipo**: se agrupa por `padre_id`, el backend devuelve `padre: { id, codigo, descripcion }` en `detalleEjecucion`.
+- **Botón "Cerrar sin ejecutar" invisible en VENCIDAS**: condición ampliada a `['PENDIENTE', 'EN_CURSO', 'VENCIDA']`. VENCIDA es estado computado en frontend únicamente.
+- **Fechas vacías en modal "Programar ejecución"**: `defaultValues` incluye `fecha_inicio` y `fecha_fin` con `new Date().toISOString().slice(0, 10)`.
+
+#### Features nuevas
+
+- **Badge checklist en fila de activo (vista Definición)**: `ArbolComponentes` en `PautaDetallePage` muestra badges indigo con checklists únicos de los componentes de cada activo.
+- **Badge checklist en cabecera de grupo (vista Ejecución)**: aparece en `EjecucionDetallePage` SOLO si TODOS los ítems del grupo tienen el mismo checklist.
+- **Botón "Registrar equipo" (batch)**: en `EjecucionDetallePage`, cuando todos los ítems del equipo comparten el mismo checklist y hay alguno sin registrar. Abre modal con checklist + observación + foto. Al confirmar llama `marcar.mutateAsync` secuencialmente para cada ítem no inspeccionado. Estado: `grupoAMarcar = { padre, items[], checklist }`, `cargandoItem === 'grupo'`.
+
+#### Patrones clave
+
+- **Herencia equipo→componentes**: siempre propagar directamente a `ubtPlantillas` desde el selector de equipo. No depender de `undefined` como señal de "sin override".
+- **Prisma `include` vs `select` para relaciones con `orderBy`**: usar `include: { relation: { select: {...}, orderBy: {} } }`. El `select` con sub-relaciones no es confiable en todos los contextos.
+- **VENCIDA solo existe en frontend**: `EjecucionPauta.estado` en DB no tiene VENCIDA. Se computa cuando `fecha_fin < now && estado in [PENDIENTE, EN_CURSO]`.
+
+### Sesión 4 — 2026-04-17
+
+#### Bugs corregidos
+
+- **Restricción nivel 4 en pautas bloqueaba equipos (nivel 3)**: Eliminada validación `ubicacion.nivel !== 4` en `pautasController.js`. Pautas ahora aceptan UBTs nivel 3 (Activo) o nivel 4 (Componente). La restricción de nivel 4 aplica solo a hallazgos.
+- **PDF no mostraba fotos**: `insertarFotos` usaba `doc.y` como setter (es read-only en pdfkit). Reescrito con modo flujo: `doc.image(buffer, { fit: [CONTENT_W, maxH], align: 'center' })` sin coordenadas absolutas.
+
+#### Features nuevas
+
+- **Múltiples fotos al crear hallazgo** (hasta 5):
+  - Backend: `upload.array('fotos', 5)`, guarda en `HallazgoFoto (tipo: INICIAL)` + `foto_url` para backward compat.
+  - `CamaraInput` reescrito: hero grande + tira de miniaturas + botón agregar. Props: `fotos[], onChange, error, max=5`.
+  - Nueva tabla Prisma: `HallazgoFoto { id, hallazgo_id, foto_url, tipo: INICIAL|CIERRE, orden }`.
+
+- **Múltiples fotos de cierre** (hasta 5):
+  - Backend: `upload.array('fotos_cierre', 5)` en endpoint `PATCH /hallazgos/:id/estado`.
+  - Frontend: `cambiarEstado` usa FormData con `fotos_cierre[]` (múltiples appends).
+  - PDF: lee `hallazgo.fotos[]` filtrado por tipo; fallback a `foto_url`/`foto_despues_url`.
+
+- **Galería mejorada en HallazgoDetallePage**:
+  - Componente `FotoGaleria` (inline) con hero + tira de miniaturas + lightbox.
+  - Lightbox: navegación con flechas, contador 1/N, backdrop negro.
+  - Hero con `bg-white` (evita letterboxing negro con `object-contain`).
+  - Miniatura activa con `ring-2 ring-blue-500`.
+
+#### Patrones clave
+
+- **pdfkit `doc.y` es read-only**: Nunca usar como setter. Modo flujo con `{ fit, align }` es la forma correcta para imágenes.
+- **Multer `.array()` vs `.single()`**: Archivos en `req.files[]` (array) no `req.file` (objeto). Actualizar todos los puntos de acceso en el controller.
+- **Backward compat en uploads**: Mantener `foto_url` en tabla principal + tabla relacional `HallazgoFoto`. PDF y correos usan `foto_url` como fallback.
+
 ---
 
 ## Feature Planificada: Pautas de Inspección
@@ -606,7 +675,7 @@ Antes de considerar una feature lista, verificar:
 
 - **`Disciplina`**: catálogo administrable (Correas, Eléctrico, Estructural…). Los inspectores tienen una disciplina asignada. Los supervisores/admins no.
 - **`PautaInspeccion`** (plantilla): define qué UBTs inspeccionar. Permanente, reutilizable. No tiene estado ni período.
-- **`PautaUBT`**: tabla de unión plantilla ↔ UBT nivel 4, con orden de recorrido.
+- **`PautaUBT`**: tabla de unión plantilla ↔ UBT (nivel 3 Activo o nivel 4 Componente), con orden de recorrido.
 - **`EjecucionPauta`**: instancia de una ronda concreta con `fecha_inicio`, `fecha_fin` y `estado`. El supervisor la crea desde la plantilla.
 - **`ItemEjecucion`**: copia de cada UBT al momento de crear la ejecución. Tiene `ejecutado_por_id` → trazabilidad de quién inspeccionó qué en esa ronda.
 

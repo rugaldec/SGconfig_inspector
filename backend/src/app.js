@@ -31,6 +31,7 @@ app.use('/api/logs-acceso', require('./routes/logsAcceso'))
 app.use('/api/disciplinas', require('./routes/disciplinas'))
 app.use('/api/pautas', require('./routes/pautas'))
 app.use('/api/ejecuciones', require('./routes/ejecuciones'))
+app.use('/api/plantillas',    require('./routes/plantillas'))
 
 // Manejo global de errores
 app.use((err, req, res, next) => {

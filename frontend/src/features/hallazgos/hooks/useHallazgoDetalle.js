@@ -12,7 +12,8 @@ export function useHallazgoDetalle(id) {
   })
 
   const mutCambiarEstado = useMutation({
-    mutationFn: ({ estado, motivo, fotoDespues, numero_aviso_sap }) => hallazgosApi.cambiarEstado(id, estado, motivo, fotoDespues, numero_aviso_sap),
+    mutationFn: ({ estado, motivo, fotosCierre = [], numero_aviso_sap }) =>
+      hallazgosApi.cambiarEstado(id, estado, motivo, fotosCierre, numero_aviso_sap),
     onSuccess: invalidar,
   })
 
