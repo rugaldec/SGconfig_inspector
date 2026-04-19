@@ -84,6 +84,12 @@ model Usuario {
   activo              Boolean     @default(true)
   fecha_creacion      DateTime    @default(now())
   fecha_actualizacion DateTime    @updatedAt
+  titulo              String?
+  cargo               String?
+  telefono            String?
+  area_funcional      String?
+  observaciones       String?
+  foto_url            String?
 
   disciplinas         UsuarioDisciplina[]
   hallazgos           Hallazgo[]       @relation("InspectorHallazgos")
@@ -333,9 +339,21 @@ model ItemEjecucion {
   plantilla_verif_id   String?
   plantilla_verif      PlantillaVerificacion? @relation("PlantillaItem", fields: [plantilla_verif_id], references: [id], onDelete: SetNull)
   respuestas           RespuestaCampo[]
+  fotos                ItemEjecucionFoto[]
 
   @@index([ejecucion_id])
   @@map("items_ejecucion")
+}
+
+model ItemEjecucionFoto {
+  id               String        @id @default(uuid())
+  item_ejecucion   ItemEjecucion @relation(fields: [item_ejecucion_id], references: [id], onDelete: Cascade)
+  item_ejecucion_id String
+  foto_url         String
+  orden            Int           @default(0)
+
+  @@index([item_ejecucion_id])
+  @@map("items_ejecucion_fotos")
 }
 
 model PlantillaVerificacion {

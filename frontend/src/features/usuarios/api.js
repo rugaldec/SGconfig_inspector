@@ -15,4 +15,23 @@ export const usuariosApi = {
 
   resetPassword: (id, password) =>
     apiClient.patch(`/usuarios/${id}/password`, { password }).then(r => r.data),
+
+  actualizarMiPerfil: (datos) =>
+    apiClient.patch('/usuarios/mi-perfil', datos).then(r => r.data.data),
+
+  actualizarMiFoto: (file) => {
+    const fd = new FormData()
+    fd.append('foto', file)
+    return apiClient.patch('/usuarios/mi-perfil/foto', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data.data)
+  },
+
+  actualizarFotoUsuario: (id, file) => {
+    const fd = new FormData()
+    fd.append('foto', file)
+    return apiClient.patch(`/usuarios/${id}/foto`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data.data)
+  },
 }

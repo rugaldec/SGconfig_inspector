@@ -66,10 +66,16 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
+  async function refreshUser() {
+    const userData = await authApi.me()
+    setUser(userData)
+    return userData
+  }
+
   const rolEfectivo = (user?.rol === 'ADMINISTRADOR' && simulatedRole) ? simulatedRole : user?.rol
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, simulatedRole, rolEfectivo, setSimulatedRole }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, simulatedRole, rolEfectivo, setSimulatedRole }}>
       {children}
     </AuthContext.Provider>
   )

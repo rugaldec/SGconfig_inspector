@@ -29,3 +29,23 @@ export function useResetPassword() {
     mutationFn: ({ id, password }) => usuariosApi.resetPassword(id, password),
   })
 }
+
+export function useActualizarMiPerfil() {
+  return useMutation({
+    mutationFn: (datos) => usuariosApi.actualizarMiPerfil(datos),
+  })
+}
+
+export function useActualizarMiFoto() {
+  return useMutation({
+    mutationFn: (file) => usuariosApi.actualizarMiFoto(file),
+  })
+}
+
+export function useActualizarFotoUsuario() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, file }) => usuariosApi.actualizarFotoUsuario(id, file),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['usuarios'] }),
+  })
+}

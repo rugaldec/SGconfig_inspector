@@ -38,11 +38,11 @@ export const pautasApi = {
   cerrarEjecucion: (ejecucionId, { motivo } = {}) =>
     apiClient.patch(`/ejecuciones/${ejecucionId}/cerrar`, { motivo }).then(r => r.data.data),
 
-  marcarItem: (ejecucionId, itemId, { observacion, hallazgo_id, foto, respuestas }) => {
+  marcarItem: (ejecucionId, itemId, { observacion, hallazgo_id, fotos, respuestas }) => {
     const fd = new FormData()
     if (observacion) fd.append('observacion', observacion)
     if (hallazgo_id) fd.append('hallazgo_id', hallazgo_id)
-    if (foto) fd.append('foto', foto)
+    if (fotos?.length) fotos.forEach(f => fd.append('fotos', f))
     if (respuestas?.length) fd.append('respuestas', JSON.stringify(respuestas))
     return apiClient.patch(`/ejecuciones/${ejecucionId}/items/${itemId}`, fd, {
       headers: { 'Content-Type': 'multipart/form-data' },

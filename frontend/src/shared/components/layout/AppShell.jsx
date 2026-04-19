@@ -4,7 +4,7 @@ import { useAuth } from '../../../features/auth/useAuth'
 import {
   LayoutDashboard, ClipboardList, PlusCircle,
   Users, MapPin, Mail, History, LogOut, Menu, X, Shield,
-  ClipboardCheck, Wrench, BookOpen, FlaskConical, ChevronDown,
+  ClipboardCheck, Wrench, BookOpen, FlaskConical, ChevronDown, UserCircle,
 } from 'lucide-react'
 
 // ── Grupos de navegación por rol ─────────────────────────────────────────────
@@ -233,6 +233,22 @@ function SidebarGroupLinks({ groups }) {
           ))}
         </div>
       ))}
+
+      <div className="mt-auto border-t pt-1 pb-2">
+        <NavLink
+          to="/perfil"
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-4 py-2.5 rounded-r-full mr-3 text-sm transition-colors
+            ${isActive
+              ? 'bg-blue-50 text-blue-700 font-semibold'
+              : 'text-gray-500 hover:text-blue-700 hover:bg-gray-50'
+            }`
+          }
+        >
+          <UserCircle size={17} />
+          Mi Perfil
+        </NavLink>
+      </div>
     </nav>
   )
 }
@@ -277,6 +293,16 @@ export default function AppShell() {
             ${isSimulating ? 'bg-amber-500 text-white' : 'text-blue-300 bg-blue-800'}`}>
             {isSimulating ? rolEfectivo : user?.rol}
           </span>
+          <NavLink
+            to="/perfil"
+            title="Mi Perfil"
+            className="p-1.5 hover:bg-blue-800 rounded-lg transition-colors flex items-center"
+          >
+            {user?.foto_url
+              ? <img src={user.foto_url} alt="avatar" className="w-7 h-7 rounded-full object-cover" />
+              : <UserCircle size={18} />
+            }
+          </NavLink>
           <button
             onClick={handleLogout}
             title="Cerrar sesión"
@@ -333,6 +359,18 @@ export default function AppShell() {
         </div>
 
         <NavGroupLinks groups={groups} onClickLink={() => setDrawerOpen(false)} />
+
+        <NavLink
+          to="/perfil"
+          onClick={() => setDrawerOpen(false)}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-5 py-3 text-sm transition-colors border-t flex-shrink-0
+            ${isActive ? 'text-blue-700 font-semibold bg-blue-50' : 'text-gray-600 hover:bg-gray-50'}`
+          }
+        >
+          <UserCircle size={18} />
+          Mi Perfil
+        </NavLink>
 
         <button
           onClick={handleLogout}

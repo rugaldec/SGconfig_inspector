@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, Users, AlertTriangle, Camera, X, ClipboardCheck, XCircle, ClipboardList } from 'lucide-react'
+import { ArrowLeft, MapPin, Users, AlertTriangle, Camera, X, ClipboardCheck, XCircle, ClipboardList, Plus } from 'lucide-react'
 import { useEjecucionDetalle, useMarcarItem, useCerrarEjecucion } from '../hooks/usePautas'
 import { useAuth } from '../../auth/useAuth'
 import { comprimirImagen } from '../../../shared/utils/comprimirImagen'
@@ -11,6 +11,78 @@ import ChecklistDinamico from '../components/ChecklistDinamico'
 import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Spinner from '../../../shared/components/ui/Spinner'
+
+function FotosInput({ fotos, onAdd, onQuitar, error, fileRef, onChange }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-sm font-medium text-gray-700">
+        Evidencia fotográfica <span className="text-red-500">*</span>
+        {fotos.length > 0 && <span className="text-gray-400 font-normal ml-1">({fotos.length}/5)</span>}
+      </label>
+
+      {fotos.length > 0 && (
+        <div className="relative rounded-xl overflow-hidden border border-gray-200 bg-white">
+          <img src={fotos[0].preview} alt="Foto principal" className="w-full max-h-48 object-contain" />
+          <button
+            type="button"
+            onClick={() => onQuitar(0)}
+            className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {fotos.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {fotos.slice(1).map((f, i) => (
+            <div key={i} className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+              <img src={f.preview} alt={`Foto ${i + 2}`} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => onQuitar(i + 1)}
+                className="absolute top-0.5 right-0.5 bg-black/50 text-white rounded-full p-0.5 hover:bg-black/70 transition-colors"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {fotos.length < 5 && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-4 transition-colors ${
+            error
+              ? 'border-red-400 bg-red-50 text-red-400'
+              : 'border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-400'
+          }`}
+        >
+          {fotos.length === 0 ? <Camera size={24} /> : <Plus size={20} />}
+          <span className="text-xs">{fotos.length === 0 ? 'Tomar foto o seleccionar imagen' : 'Agregar otra foto'}</span>
+        </button>
+      )}
+
+      {error && (
+        <p className="text-xs text-red-500 flex items-center gap-1">
+          <AlertTriangle size={11} /> {error}
+        </p>
+      )}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        multiple
+        className="hidden"
+        onChange={onChange}
+      />
+    </div>
+  )
+}
 
 export default function EjecucionDetallePage() {
   const { id } = useParams()
@@ -25,8 +97,7 @@ export default function EjecucionDetallePage() {
   const [modalCerrar, setModalCerrar] = useState(false)
   const [motivoCierre, setMotivoCierre] = useState('')
   const [observacion, setObservacion] = useState('')
-  const [foto, setFoto] = useState(null)          // File comprimido
-  const [fotoPreview, setFotoPreview] = useState(null)  // base64 para preview
+  const [fotos, setFotos] = useState([])          // [{ file: File, preview: string }]
   const [cargandoItem, setCargandoItem] = useState(null)
   const [conflicto, setConflicto] = useState(null)
   const [erroresForm, setErroresForm] = useState({})
@@ -44,16 +115,22 @@ export default function EjecucionDetallePage() {
 
   function resetForm() {
     setObservacion('')
-    setFoto(null)
-    setFotoPreview(null)
+    setFotos([])
     setErroresForm({})
     setRespuestas({})
     setErroresChecklist({})
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  function defaultsNumericos(campos = {}) {
+    const defaults = {}
+    campos.forEach?.(c => { if (c.tipo === 'NUMERICO') defaults[c.id] = '0' })
+    return defaults
+  }
+
   function abrirMarcar(item) {
     resetForm()
+    setRespuestas(defaultsNumericos(item.plantilla_verif?.campos))
     setItemAMarcar(item)
   }
 
@@ -61,30 +138,31 @@ export default function EjecucionDetallePage() {
     const noInspeccionados = g.items.filter(({ item }) => !item.inspeccionado).map(({ item }) => item)
     const checklist = noInspeccionados[0]?.plantilla_verif ?? null
     resetForm()
+    setRespuestas(defaultsNumericos(checklist?.campos))
     setGrupoAMarcar({ padre: g.padre, items: noInspeccionados, checklist })
   }
 
-  async function onFotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      const comprimido = await comprimirImagen(file)
-      setFoto(comprimido)
-      const reader = new FileReader()
-      reader.onload = ev => setFotoPreview(ev.target.result)
-      reader.readAsDataURL(comprimido)
-    } catch {
-      setFoto(file)
-      const reader = new FileReader()
-      reader.onload = ev => setFotoPreview(ev.target.result)
-      reader.readAsDataURL(file)
-    }
+  async function onFotosChange(e) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const disponible = 5 - fotos.length
+    const nuevos = files.slice(0, disponible)
+    const procesados = await Promise.all(nuevos.map(async file => {
+      let comprimido = file
+      try { comprimido = await comprimirImagen(file) } catch {}
+      return new Promise(resolve => {
+        const reader = new FileReader()
+        reader.onload = ev => resolve({ file: comprimido, preview: ev.target.result })
+        reader.readAsDataURL(comprimido)
+      })
+    }))
+    setFotos(prev => [...prev, ...procesados])
+    setErroresForm(p => ({ ...p, fotos: undefined }))
+    if (fileRef.current) fileRef.current.value = ''
   }
 
-  function quitarFoto() {
-    setFoto(null)
-    setFotoPreview(null)
-    if (fileRef.current) fileRef.current.value = ''
+  function quitarFoto(idx) {
+    setFotos(prev => prev.filter((_, i) => i !== idx))
   }
 
   function confirmarMarcar() {
@@ -93,7 +171,7 @@ export default function EjecucionDetallePage() {
     // Validación: foto y comentario obligatorios
     const errores = {}
     if (!observacion.trim()) errores.observacion = 'La observación es obligatoria'
-    if (!foto) errores.foto = 'La foto de evidencia es obligatoria'
+    if (!fotos.length) errores.fotos = 'La foto de evidencia es obligatoria'
     if (Object.keys(errores).length > 0) {
       setErroresForm(errores)
       return
@@ -127,19 +205,14 @@ export default function EjecucionDetallePage() {
         itemId: itemAMarcar.id,
         datos: {
           observacion: observacion || null,
-          foto: foto || undefined,
+          fotos: fotos.map(f => f.file),
           respuestas: respuestasArray,
         },
       },
       {
         onSuccess: () => {
           setItemAMarcar(null)
-          setObservacion('')
-          setFoto(null)
-          setFotoPreview(null)
-          setErroresForm({})
-          setRespuestas({})
-          setErroresChecklist({})
+          resetForm()
           setCargandoItem(null)
         },
         onError: (err) => {
@@ -158,7 +231,7 @@ export default function EjecucionDetallePage() {
 
     const errores = {}
     if (!observacion.trim()) errores.observacion = 'La observación es obligatoria'
-    if (!foto) errores.foto = 'La foto de evidencia es obligatoria'
+    if (!fotos.length) errores.fotos = 'La foto de evidencia es obligatoria'
     if (Object.keys(errores).length > 0) { setErroresForm(errores); return }
     setErroresForm({})
 
@@ -181,7 +254,7 @@ export default function EjecucionDetallePage() {
         await marcar.mutateAsync({
           ejecucionId: id,
           itemId: item.id,
-          datos: { observacion: observacion || null, foto: foto || undefined, respuestas: respuestasArray },
+          datos: { observacion: observacion || null, fotos: fotos.map(f => f.file), respuestas: respuestasArray },
         })
       }
       setGrupoAMarcar(null)
@@ -367,7 +440,7 @@ export default function EjecucionDetallePage() {
       {/* Modal marcar ítem */}
       <Modal
         open={!!itemAMarcar}
-        onClose={() => { setItemAMarcar(null); setObservacion(''); quitarFoto(); setRespuestas({}); setErroresChecklist({}) }}
+        onClose={() => { setItemAMarcar(null); resetForm() }}
         title="Marcar como inspeccionado"
       >
         <div className="space-y-4">
@@ -419,57 +492,21 @@ export default function EjecucionDetallePage() {
             </div>
           )}
 
-          {/* Foto evidencia */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">
-              Evidencia fotográfica <span className="text-red-500">*</span>
-            </label>
-
-            {fotoPreview ? (
-              <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                <img src={fotoPreview} alt="Preview" className="w-full max-h-48 object-cover" />
-                <button
-                  onClick={quitarFoto}
-                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { fileRef.current?.click(); setErroresForm(p => ({ ...p, foto: undefined })) }}
-                className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 transition-colors ${
-                  erroresForm.foto
-                    ? 'border-red-400 bg-red-50 text-red-400'
-                    : 'border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-400'
-                }`}
-              >
-                <Camera size={24} />
-                <span className="text-xs">Tomar foto o seleccionar imagen</span>
-              </button>
-            )}
-            {erroresForm.foto && (
-              <p className="text-xs text-red-500 flex items-center gap-1">
-                <AlertTriangle size={11} /> {erroresForm.foto}
-              </p>
-            )}
-
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              capture="environment"
-              className="hidden"
-              onChange={onFotoChange}
-            />
-          </div>
+          {/* Fotos evidencia */}
+          <FotosInput
+            fotos={fotos}
+            onAdd={() => fileRef.current?.click()}
+            onQuitar={quitarFoto}
+            error={erroresForm.fotos}
+            fileRef={fileRef}
+            onChange={onFotosChange}
+          />
 
           <div className="flex gap-3">
             <Button
               variant="secondary"
               size="full"
-              onClick={() => { setItemAMarcar(null); setObservacion(''); quitarFoto(); setRespuestas({}); setErroresChecklist({}) }}
+              onClick={() => { setItemAMarcar(null); resetForm() }}
             >
               Cancelar
             </Button>
@@ -532,33 +569,15 @@ export default function EjecucionDetallePage() {
             </div>
           )}
 
-          {/* Foto */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">
-              Evidencia fotográfica <span className="text-red-500">*</span>
-            </label>
-            {fotoPreview ? (
-              <div className="relative rounded-xl overflow-hidden border border-gray-200">
-                <img src={fotoPreview} alt="Preview" className="w-full max-h-48 object-cover" />
-                <button onClick={quitarFoto} className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition-colors">
-                  <X size={14} />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { fileRef.current?.click(); setErroresForm(p => ({ ...p, foto: undefined })) }}
-                className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 transition-colors ${
-                  erroresForm.foto ? 'border-red-400 bg-red-50 text-red-400' : 'border-gray-200 text-gray-400 hover:border-blue-300 hover:text-blue-400'
-                }`}
-              >
-                <Camera size={24} />
-                <span className="text-xs">Tomar foto o seleccionar imagen</span>
-              </button>
-            )}
-            {erroresForm.foto && <p className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11} /> {erroresForm.foto}</p>}
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={onFotoChange} />
-          </div>
+          {/* Fotos evidencia */}
+          <FotosInput
+            fotos={fotos}
+            onAdd={() => fileRef.current?.click()}
+            onQuitar={quitarFoto}
+            error={erroresForm.fotos}
+            fileRef={fileRef}
+            onChange={onFotosChange}
+          />
 
           <div className="flex gap-3">
             <Button variant="secondary" size="full" onClick={() => { setGrupoAMarcar(null); resetForm() }}>Cancelar</Button>

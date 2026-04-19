@@ -1,4 +1,5 @@
 const prisma = require('../db/client')
+const { Prisma } = require('@prisma/client')
 const { ok, fail } = require('../utils/responseHelper')
 const storage = require('../utils/storageService')
 const { generarPdfEjecucion } = require('../utils/pdfEjecucion')
@@ -46,7 +47,6 @@ async function ejecucionesActivas(req, res) {
           id: true,
           nombre: true,
           descripcion: true,
-          foto_url: true,
           disciplina: { select: { id: true, nombre: true } },
           zona_funcional: { select: { id: true, codigo: true, descripcion: true } },
         },
@@ -83,6 +83,20 @@ async function ejecucionesActivas(req, res) {
     }
   })
 
+  // Merge foto_url via raw SQL (campo añadido post-generación del cliente Prisma)
+  try {
+    const pautaIds = [...new Set(enrichedConCiclo.map(e => e.pauta?.id).filter(Boolean))]
+    if (pautaIds.length > 0) {
+      const fotoRows = await prisma.$queryRaw`SELECT id::text, foto_url FROM pautas_inspeccion WHERE id::text IN (${Prisma.join(pautaIds)})`
+      const fotoMap = Object.fromEntries(fotoRows.map(r => [r.id, r.foto_url]))
+      enrichedConCiclo.forEach(e => {
+        if (e.pauta) e.pauta.foto_url = fotoMap[e.pauta.id] ?? null
+      })
+    }
+  } catch (e) {
+    console.error('[ejecuciones mergeFotoUrls]', e.message)
+  }
+
   return ok(res, enrichedConCiclo)
 }
 
@@ -116,6 +130,7 @@ async function detalleEjecucion(req, res) {
           hallazgo: {
             select: { id: true, numero_aviso: true, estado: true, criticidad: true },
           },
+          fotos: { orderBy: { orden: 'asc' } },
           ...(PLANTILLAS_OK && {
             plantilla_verif: {
               include: {
@@ -164,7 +179,7 @@ async function marcarItem(req, res) {
   const { id: ejecucionId, itemId } = req.params
   const { observacion, hallazgo_id } = req.body
   const respuestas = req.body.respuestas ? JSON.parse(req.body.respuestas) : []
-  const fotoFile = req.file || null
+  const fotoFiles = req.files || []
 
   const [usuario, item] = await Promise.all([
     prisma.usuario.findUnique({
@@ -226,12 +241,15 @@ async function marcarItem(req, res) {
     }
   }
 
-  // Guardar foto si viene
-  let foto_url = null
-  if (fotoFile) {
-    const nombre = `inspeccion-${itemId}-${Date.now()}`
-    foto_url = await storage.guardar(fotoFile.buffer, fotoFile.mimetype, nombre)
+  // Guardar fotos si vienen
+  const fotosGuardadas = []
+  for (let i = 0; i < fotoFiles.length; i++) {
+    const f = fotoFiles[i]
+    const nombre = `inspeccion-${itemId}-${Date.now()}-${i}`
+    const url = await storage.guardar(f.buffer, f.mimetype, nombre)
+    fotosGuardadas.push(url)
   }
+  const foto_url = fotosGuardadas[0] ?? null
 
   const itemActualizado = await prisma.itemEjecucion.update({
     where: { id: itemId },
@@ -256,8 +274,21 @@ async function marcarItem(req, res) {
       ejecutado_por: { select: { id: true, nombre: true } },
       hallazgo: { select: { id: true, numero_aviso: true, estado: true } },
       ubicacion_tecnica: { select: { id: true, codigo: true, descripcion: true } },
+      fotos: { orderBy: { orden: 'asc' } },
     },
   })
+
+  // Guardar fotos relacionales
+  if (fotosGuardadas.length > 0) {
+    await prisma.itemEjecucionFoto.createMany({
+      data: fotosGuardadas.map((url, orden) => ({
+        item_ejecucion_id: itemId,
+        foto_url: url,
+        orden,
+      })),
+    })
+    itemActualizado.fotos = fotosGuardadas.map((url, orden) => ({ foto_url: url, orden }))
+  }
 
   // Actualizar estado de la ejecución
   const ejecucion = await prisma.ejecucionPauta.findUnique({
@@ -405,6 +436,11 @@ async function pdfEjecucion(req, res) {
           ubicacion_tecnica: { select: { id: true, codigo: true, descripcion: true } },
           ejecutado_por:     { select: { id: true, nombre: true } },
           hallazgo:          { select: { id: true, numero_aviso: true, estado: true, criticidad: true } },
+          fotos:             { orderBy: { orden: 'asc' } },
+          respuestas: {
+            include: { campo: { select: { etiqueta: true, tipo: true, unidad_medida: true, orden: true } } },
+            orderBy: { campo: { orden: 'asc' } },
+          },
         },
       },
     },

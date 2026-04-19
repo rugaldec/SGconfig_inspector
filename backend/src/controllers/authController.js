@@ -105,7 +105,12 @@ async function me(req, res) {
       email: true,
       rol: true,
       activo: true,
-      // Si es inspector, incluir sus disciplinas
+      titulo: true,
+      cargo: true,
+      telefono: true,
+      area_funcional: true,
+      observaciones: true,
+      foto_url: true,
       disciplinas: {
         select: {
           disciplina_id: true,

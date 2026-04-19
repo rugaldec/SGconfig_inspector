@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, Trash2, ChevronUp, ChevronDown, ClipboardList } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, Trash2, ChevronUp, ChevronDown, ClipboardList, Upload, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { usePlantillas, useCrearPlantilla, useActualizarPlantilla, useEliminarPlantilla } from '../hooks/usePlantillas'
 import { plantillasApi } from '../api'
 import { useDisciplinas } from '../../disciplinas/hooks/useDisciplinas'
@@ -73,12 +73,40 @@ function CampoFila({ campo, idx, total, onChange, onRemove, onMoveUp, onMoveDown
 
 const CAMPO_VACIO = () => ({ _key: Math.random(), etiqueta: '', tipo: 'CHECKBOX_ESTADO', es_obligatorio: true, unidad_medida: '' })
 
+const TIPO_MAP = {
+  CHECKBOX_ESTADO: 'CHECKBOX_ESTADO', CHECKBOX: 'CHECKBOX_ESTADO',
+  'SI/NO': 'CHECKBOX_ESTADO', SINO: 'CHECKBOX_ESTADO', CHECK: 'CHECKBOX_ESTADO',
+  NUMERICO: 'NUMERICO', NUMERO: 'NUMERICO', NUM: 'NUMERICO',
+  TEXTO: 'TEXTO', TEXT: 'TEXTO',
+}
+
+function parsearCSV(texto) {
+  const errores = []
+  const campos = []
+  texto.split('\n').forEach((linea, i) => {
+    const l = linea.trim()
+    if (!l || l.startsWith('*')) return
+    const partes = l.split(',').map(p => p.trim())
+    const etiqueta = partes[0]
+    if (!etiqueta) { errores.push(`Línea ${i + 1}: etiqueta vacía`); return }
+    const tipo = TIPO_MAP[partes[1]?.toUpperCase()] ?? null
+    if (!tipo) { errores.push(`Línea ${i + 1}: tipo inválido "${partes[1]}" (usa CHECKBOX_ESTADO, NUMERICO o TEXTO)`); return }
+    const obligRaw = partes[2]?.toLowerCase()
+    const es_obligatorio = !['false', 'no', '0', 'n'].includes(obligRaw)
+    const unidad_medida = tipo === 'NUMERICO' ? (partes[3] ?? '') : ''
+    campos.push({ _key: Math.random(), etiqueta, tipo, es_obligatorio, unidad_medida })
+  })
+  return { campos, errores }
+}
+
 export default function PlantillasPage() {
   const [modal, setModal] = useState(false)
   const [editando, setEditando] = useState(null)
   const [form, setForm] = useState({ nombre: '', descripcion: '', disciplina_id: '' })
   const [campos, setCampos] = useState([])
   const [errMsg, setErrMsg] = useState(null)
+  const [importFeedback, setImportFeedback] = useState(null)  // { ok, msg }
+  const importRef = useRef(null)
 
   const { data: plantillas, isLoading } = usePlantillas()
   const { data: disciplinas } = useDisciplinas()
@@ -108,7 +136,28 @@ export default function PlantillasPage() {
     }
   }
 
-  function cerrar() { setModal(false); crear.reset(); actualizar.reset() }
+  function cerrar() { setModal(false); crear.reset(); actualizar.reset(); setImportFeedback(null) }
+
+  function onImportCSV(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const { campos: nuevos, errores } = parsearCSV(ev.target.result)
+      if (errores.length > 0) {
+        setImportFeedback({ ok: false, msg: errores.join(' · ') })
+        return
+      }
+      if (nuevos.length === 0) {
+        setImportFeedback({ ok: false, msg: 'El archivo no contiene campos válidos' })
+        return
+      }
+      setCampos(prev => [...prev, ...nuevos])
+      setImportFeedback({ ok: true, msg: `${nuevos.length} campo${nuevos.length !== 1 ? 's' : ''} importado${nuevos.length !== 1 ? 's' : ''}` })
+    }
+    reader.readAsText(file)
+  }
 
   function actualizarCampo(idx, nuevo) {
     setCampos(prev => prev.map((c, i) => i === idx ? nuevo : c))
@@ -219,13 +268,48 @@ export default function PlantillasPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <label className="text-sm font-medium text-gray-700">Campos del checklist</label>
-              <button type="button" onClick={() => setCampos(p => [...p, CAMPO_VACIO()])}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
-                <Plus size={13} /> Agregar campo
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="relative group">
+                  <button type="button" onClick={() => importRef.current?.click()}
+                    className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium">
+                    <Upload size={13} /> Importar checklist
+                  </button>
+                  <div className="absolute right-0 top-6 z-50 hidden group-hover:block w-72 bg-gray-900 text-gray-100 text-xs rounded-xl p-3 shadow-xl pointer-events-none">
+                    <p className="font-semibold text-gray-300 mb-1.5">Formato CSV esperado:</p>
+                    <pre className="font-mono text-[10px] leading-relaxed whitespace-pre text-emerald-300">{`* Comentario (se ignora)
+* Sección 1: Estado visual
+Desgaste visible,CHECKBOX_ESTADO,true
+Limpieza del sector,CHECKBOX_ESTADO,false
+* Sección 2: Mediciones
+Temperatura,NUMERICO,true,°C
+Tensión,NUMERICO,false,N
+* Sección 3
+Observaciones,TEXTO,false`}</pre>
+                    <p className="mt-2 text-gray-400 leading-snug">Columnas: <span className="text-white">etiqueta, tipo, obligatorio[, unidad]</span></p>
+                    <p className="mt-0.5 text-gray-400">Tipos: <span className="text-white">CHECKBOX_ESTADO · NUMERICO · TEXTO</span></p>
+                  </div>
+                </div>
+                <span className="text-gray-200">|</span>
+                <button type="button" onClick={() => setCampos(p => [...p, CAMPO_VACIO()])}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                  <Plus size={13} /> Agregar campo
+                </button>
+              </div>
+              <input ref={importRef} type="file" accept=".csv,.txt" className="hidden" onChange={onImportCSV} />
             </div>
+
+            {importFeedback && (
+              <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg ${
+                importFeedback.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+              }`}>
+                {importFeedback.ok
+                  ? <CheckCircle2 size={13} />
+                  : <AlertCircle size={13} className="flex-shrink-0" />}
+                <span>{importFeedback.msg}</span>
+              </div>
+            )}
             <div className="space-y-2">
               {campos.map((c, i) => (
                 <CampoFila key={c._key ?? i} campo={c} idx={i} total={campos.length}

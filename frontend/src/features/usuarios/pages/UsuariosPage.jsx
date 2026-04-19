@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useUsuarios, useCrearUsuario, useActualizarUsuario, useResetPassword } from '../hooks/useUsuarios'
+import {
+  useUsuarios, useCrearUsuario, useActualizarUsuario,
+  useResetPassword, useActualizarFotoUsuario,
+} from '../hooks/useUsuarios'
 import { useDisciplinas } from '../../disciplinas/hooks/useDisciplinas'
 import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
 import Spinner from '../../../shared/components/ui/Spinner'
-import { UserPlus, KeyRound } from 'lucide-react'
+import { UserPlus, KeyRound, Camera } from 'lucide-react'
+import { comprimirImagen } from '../../../shared/utils/comprimirImagen'
 
 const PASSWORD_HINT = 'Mínimo 8 caracteres, una mayúscula, un número y un carácter especial (ej: !, @, #)'
 
@@ -26,11 +30,16 @@ const crearSchema = z.object({
 })
 
 const editarSchema = z.object({
-  nombre: z.string().min(2, 'Mínimo 2 caracteres'),
-  email: z.string().email('Email inválido'),
-  rol: z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
-  activo: z.boolean(),
-  disciplinas: z.array(z.string()).optional(),
+  nombre:         z.string().min(2, 'Mínimo 2 caracteres'),
+  email:          z.string().email('Email inválido'),
+  rol:            z.enum(['ADMINISTRADOR', 'SUPERVISOR', 'INSPECTOR']),
+  activo:         z.boolean(),
+  disciplinas:    z.array(z.string()).optional(),
+  titulo:         z.string().optional(),
+  cargo:          z.string().optional(),
+  telefono:       z.string().optional(),
+  area_funcional: z.string().optional(),
+  observaciones:  z.string().optional(),
 })
 
 const passwordSchema = z.object({
@@ -52,19 +61,12 @@ const ROL_BADGE = {
   INSPECTOR:     'bg-green-100 text-green-700',
 }
 
-// ── Selector de disciplinas con checkboxes ────────────────────────────────────
-
+// ── Selector de disciplinas ────────────────────────────────────────────────────
 function DisciplinasCheckboxes({ disciplinas, value = [], onChange }) {
   function toggle(id) {
-    if (value.includes(id)) {
-      onChange(value.filter(v => v !== id))
-    } else {
-      onChange([...value, id])
-    }
+    onChange(value.includes(id) ? value.filter(v => v !== id) : [...value, id])
   }
-
   if (!disciplinas?.length) return <p className="text-sm text-gray-400 italic">No hay disciplinas activas</p>
-
   return (
     <div className="border border-gray-200 rounded-xl p-2 max-h-36 overflow-y-auto flex flex-wrap gap-2">
       {disciplinas.map(d => {
@@ -88,37 +90,55 @@ function DisciplinasCheckboxes({ disciplinas, value = [], onChange }) {
   )
 }
 
+// ── Avatar editable ────────────────────────────────────────────────────────────
+function AvatarEditable({ usuario, onFotoChange, loading }) {
+  const fotoSrc = usuario?.foto_url ?? null
+  return (
+    <div className="relative w-16 h-16 flex-shrink-0">
+      <div className="w-16 h-16 rounded-full bg-blue-900 flex items-center justify-center text-white font-bold text-2xl overflow-hidden">
+        {fotoSrc
+          ? <img src={fotoSrc} alt="avatar" className="w-full h-full object-cover" />
+          : usuario?.nombre?.charAt(0).toUpperCase()
+        }
+      </div>
+      <button
+        type="button"
+        onClick={onFotoChange}
+        disabled={loading}
+        className="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center shadow-md transition-colors disabled:opacity-60"
+        title="Cambiar foto"
+      >
+        {loading ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Camera size={13} />}
+      </button>
+    </div>
+  )
+}
+
 export default function UsuariosPage() {
-  const [modal, setModal]             = useState(false)
-  const [editando, setEditando]       = useState(null)
-  const [modalPwd, setModalPwd]       = useState(false)
-  const [usuarioPwd, setUsuarioPwd]   = useState(null)
-  const [tab, setTab]                 = useState('activos')
-  // disciplinas seleccionadas en el formulario (controlado manualmente)
+  const [modal, setModal]           = useState(false)
+  const [editando, setEditando]     = useState(null)
+  const [modalPwd, setModalPwd]     = useState(false)
+  const [usuarioPwd, setUsuarioPwd] = useState(null)
+  const [tab, setTab]               = useState('activos')
   const [disciplinasSeleccionadas, setDisciplinasSeleccionadas] = useState([])
+  const fileRef = useRef(null)
 
   const { data: usuarios, isLoading } = useUsuarios()
   const { data: disciplinas } = useDisciplinas()
-  const crear      = useCrearUsuario()
-  const actualizar = useActualizarUsuario()
-  const resetPwd   = useResetPassword()
+  const crear        = useCrearUsuario()
+  const actualizar   = useActualizarUsuario()
+  const resetPwd     = useResetPassword()
+  const subirFoto    = useActualizarFotoUsuario()
 
-  // ── Formulario crear / editar ────────────────────────────────────────────────
   const schema = editando ? editarSchema : crearSchema
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
   })
-
-  // Observar el rol seleccionado para mostrar/ocultar disciplinas
   const rolActual = useWatch({ control, name: 'rol', defaultValue: 'INSPECTOR' })
 
-  // ── Formulario contraseña ────────────────────────────────────────────────────
-  const {
-    register: regPwd,
-    handleSubmit: handlePwd,
-    reset: resetPwdForm,
-    formState: { errors: errPwd },
-  } = useForm({ resolver: zodResolver(passwordSchema) })
+  const { register: regPwd, handleSubmit: handlePwd, reset: resetPwdForm, formState: { errors: errPwd } } = useForm({
+    resolver: zodResolver(passwordSchema),
+  })
 
   function abrirNuevo() {
     setEditando(null)
@@ -131,7 +151,17 @@ export default function UsuariosPage() {
     setEditando(u)
     const discIds = u.disciplinas?.map(d => d.disciplina_id ?? d.id) ?? []
     setDisciplinasSeleccionadas(discIds)
-    reset({ nombre: u.nombre, email: u.email, rol: u.rol, activo: u.activo })
+    reset({
+      nombre:         u.nombre         ?? '',
+      email:          u.email          ?? '',
+      rol:            u.rol,
+      activo:         u.activo,
+      titulo:         u.titulo         ?? '',
+      cargo:          u.cargo          ?? '',
+      telefono:       u.telefono       ?? '',
+      area_funcional: u.area_funcional ?? '',
+      observaciones:  u.observaciones  ?? '',
+    })
     setModal(true)
   }
 
@@ -169,6 +199,20 @@ export default function UsuariosPage() {
 
   function onSubmitPwd({ password }) {
     resetPwd.mutate({ id: usuarioPwd.id, password })
+  }
+
+  async function onFotoClick() {
+    fileRef.current?.click()
+  }
+
+  async function onFotoChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !editando) return
+    e.target.value = ''
+    const comprimida = await comprimirImagen(file)
+    subirFoto.mutate({ id: editando.id, file: comprimida }, {
+      onSuccess: (data) => setEditando(data),
+    })
   }
 
   const mutError = editando
@@ -219,8 +263,8 @@ export default function UsuariosPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              {['Nombre', 'Email', 'Rol', 'Disciplinas', ''].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {['', 'Nombre', 'Email', 'Rol', 'Disciplinas', ''].map((h, i) => (
+                <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                   {h}
                 </th>
               ))}
@@ -229,54 +273,59 @@ export default function UsuariosPage() {
           <tbody className="divide-y divide-gray-100">
             {lista.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
                   No hay usuarios {tab === 'activos' ? 'activos' : 'inactivos'}
                 </td>
               </tr>
             )}
-            {lista.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-800">{u.nombre}</td>
-                <td className="px-4 py-3 text-gray-500">{u.email}</td>
-                <td className="px-4 py-3">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROL_BADGE[u.rol]}`}>
-                    {u.rol}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  {u.disciplinas?.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {u.disciplinas.map(d => (
-                        <span
-                          key={d.disciplina_id ?? d.id}
-                          className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium"
-                        >
-                          {d.disciplina?.nombre ?? d.nombre}
-                        </span>
-                      ))}
+            {lista.map((u) => {
+              const fotoSrc = u.foto_url ?? null
+              return (
+                <tr key={u.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 w-10">
+                    <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-white text-xs font-bold overflow-hidden">
+                      {fotoSrc
+                        ? <img src={fotoSrc} alt="avatar" className="w-full h-full object-cover" />
+                        : u.nombre?.charAt(0).toUpperCase()
+                      }
                     </div>
-                  ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => abrirEditar(u)}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => abrirCambiarPwd(u)}
-                      className="flex items-center gap-1 text-xs text-amber-600 hover:underline"
-                    >
-                      <KeyRound size={11} /> Contraseña
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-800">
+                    <div>{u.nombre}</div>
+                    {u.cargo && <div className="text-xs text-gray-400">{u.cargo}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">{u.email}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ROL_BADGE[u.rol]}`}>
+                      {u.rol}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {u.disciplinas?.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {u.disciplinas.map(d => (
+                          <span key={d.disciplina_id ?? d.id} className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-medium">
+                            {d.disciplina?.nombre ?? d.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => abrirEditar(u)} className="text-xs text-blue-600 hover:underline">
+                        Editar
+                      </button>
+                      <button onClick={() => abrirCambiarPwd(u)} className="flex items-center gap-1 text-xs text-amber-600 hover:underline">
+                        <KeyRound size={11} /> Contraseña
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -284,25 +333,34 @@ export default function UsuariosPage() {
       {/* ── Modal crear / editar ──────────────────────────────────────────────── */}
       <Modal open={modal} onClose={cerrar} title={editando ? 'Editar Usuario' : 'Nuevo Usuario'}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+
+          {/* Avatar + foto (solo al editar) */}
+          {editando && (
+            <div className="flex items-center gap-4 pb-2 border-b">
+              <AvatarEditable
+                usuario={editando}
+                onFotoChange={onFotoClick}
+                loading={subirFoto.isPending}
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-700">{editando.nombre}</p>
+                <p className="text-xs text-gray-400">{editando.email}</p>
+                {subirFoto.isSuccess && <p className="text-xs text-emerald-600 mt-0.5">Foto actualizada</p>}
+              </div>
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFotoChange} />
+            </div>
+          )}
+
           <Input label="Nombre" error={errors.nombre?.message} {...register('nombre')} />
           <Input label="Email" type="email" error={errors.email?.message} {...register('email')} />
 
           {!editando && (
-            <Input
-              label="Contraseña"
-              type="password"
-              error={errors.password?.message}
-              hint={PASSWORD_HINT}
-              {...register('password')}
-            />
+            <Input label="Contraseña" type="password" error={errors.password?.message} hint={PASSWORD_HINT} {...register('password')} />
           )}
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Rol</label>
-            <select
-              className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              {...register('rol')}
-            >
+            <select className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" {...register('rol')}>
               <option value="INSPECTOR">Inspector</option>
               <option value="SUPERVISOR">Supervisor</option>
               <option value="ADMINISTRADOR">Administrador</option>
@@ -323,19 +381,36 @@ export default function UsuariosPage() {
           )}
 
           {editando && (
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="activo" {...register('activo')} className="rounded" />
-              <label htmlFor="activo" className="text-sm text-gray-700">Usuario activo</label>
-            </div>
+            <>
+              {/* Campos de perfil */}
+              <div className="border-t pt-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Perfil</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Título profesional" placeholder="Ej: Ing. Civil" {...register('titulo')} />
+                  <Input label="Cargo" placeholder="Ej: Jefe de Turno" {...register('cargo')} />
+                  <Input label="Teléfono" placeholder="+56 9 1234 5678" {...register('telefono')} />
+                  <Input label="Área funcional" placeholder="Ej: Mantenimiento" {...register('area_funcional')} />
+                </div>
+                <div className="mt-3 flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700">Observaciones</label>
+                  <textarea
+                    rows={2}
+                    className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    {...register('observaciones')}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="activo" {...register('activo')} className="rounded" />
+                <label htmlFor="activo" className="text-sm text-gray-700">Usuario activo</label>
+              </div>
+            </>
           )}
 
           {mutError && <p className="text-sm text-red-500">{mutError}</p>}
 
-          <Button
-            type="submit"
-            size="full"
-            loading={crear.isPending || actualizar.isPending}
-          >
+          <Button type="submit" size="full" loading={crear.isPending || actualizar.isPending}>
             {editando ? 'Guardar Cambios' : 'Crear Usuario'}
           </Button>
         </form>
@@ -363,19 +438,8 @@ export default function UsuariosPage() {
             <p className="text-sm text-gray-500">
               Cambiando contraseña de <span className="font-semibold text-gray-700">{usuarioPwd?.nombre}</span>
             </p>
-            <Input
-              label="Nueva contraseña"
-              type="password"
-              error={errPwd.password?.message}
-              hint={PASSWORD_HINT}
-              {...regPwd('password')}
-            />
-            <Input
-              label="Confirmar contraseña"
-              type="password"
-              error={errPwd.confirmar?.message}
-              {...regPwd('confirmar')}
-            />
+            <Input label="Nueva contraseña" type="password" error={errPwd.password?.message} hint={PASSWORD_HINT} {...regPwd('password')} />
+            <Input label="Confirmar contraseña" type="password" error={errPwd.confirmar?.message} {...regPwd('confirmar')} />
             {resetPwd.error && (
               <p className="text-sm text-red-500">
                 {resetPwd.error?.response?.data?.message ?? 'Error al cambiar contraseña'}

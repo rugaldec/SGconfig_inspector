@@ -1,4 +1,5 @@
 const prisma = require('../db/client')
+const { Prisma } = require('@prisma/client')
 const { ok, fail } = require('../utils/responseHelper')
 const storage = require('../utils/storageService')
 
@@ -9,6 +10,30 @@ function migracionPendiente(res) {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// foto_url usa raw SQL porque el campo se agregó post-generación del cliente Prisma
+async function guardarFotoUrl(pautaId, url) {
+  try {
+    await prisma.$executeRaw`UPDATE pautas_inspeccion SET foto_url = ${url} WHERE id = ${pautaId}::uuid`
+  } catch (e) {
+    console.error('[guardarFotoUrl]', e.message)
+  }
+}
+
+async function mergeFotoUrls(pautas) {
+  try {
+    const arr = Array.isArray(pautas) ? pautas : [pautas]
+    if (!arr.length) return pautas
+    const ids = arr.map(p => p.id).filter(Boolean)
+    if (!ids.length) return pautas
+    const rows = await prisma.$queryRaw`SELECT id::text, foto_url FROM pautas_inspeccion WHERE id::text IN (${Prisma.join(ids)})`
+    const map = Object.fromEntries(rows.map(r => [r.id, r.foto_url]))
+    arr.forEach(p => { p.foto_url = map[p.id] ?? null })
+  } catch (e) {
+    console.error('[mergeFotoUrls]', e.message)
+  }
+  return pautas
+}
 
 function calcularEstadoEjecucion(ejecucion) {
   if (ejecucion.estado === 'COMPLETADA') return 'COMPLETADA'
@@ -84,6 +109,7 @@ async function listar(req, res) {
       take: Number(limit),
     }),
   ])
+  await mergeFotoUrls(pautas)
   return ok(res, { pautas, total, page: Number(page), limit: Number(limit) })
 }
 
@@ -109,10 +135,10 @@ async function crear(req, res) {
   if (ubtNodes.some(n => n.nivel < 3))
     return fail(res, 'UBT_INVALIDA', 'Las UBTs deben ser Activos (nivel 3) o Componentes (nivel 4)', 400)
 
-  let foto_url = null
+  let fotoUrl = null
   if (req.file) {
     const nombreArch = `pauta-${disciplina_id.slice(0, 8)}-${Date.now()}`
-    foto_url = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
+    fotoUrl = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
   }
 
   const pauta = await prisma.pautaInspeccion.create({
@@ -120,7 +146,6 @@ async function crear(req, res) {
       nombre: nombre.trim(),
       descripcion: descripcion?.trim() || null,
       disciplina_id,
-      foto_url,
       created_by: req.user.id,
       ubts: {
         create: ubts.map((u, i) => ({
@@ -141,6 +166,8 @@ async function crear(req, res) {
       },
     },
   })
+  if (fotoUrl) await guardarFotoUrl(pauta.id, fotoUrl)
+  pauta.foto_url = fotoUrl
   return ok(res, pauta, 'Pauta creada', 201)
 }
 
@@ -166,6 +193,7 @@ async function detalle(req, res) {
     },
   })
   if (!pauta) return fail(res, 'NO_ENCONTRADO', 'Pauta no encontrada', 404)
+  await mergeFotoUrls(pauta)
   return ok(res, pauta)
 }
 
@@ -208,16 +236,22 @@ async function actualizar(req, res) {
     ])
   }
 
+  let savedFotoUrl = null
+  if (req.file) {
+    const nombreArch = `pauta-${id.slice(0, 8)}-${Date.now()}`
+    savedFotoUrl = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
+    await guardarFotoUrl(id, savedFotoUrl)
+  }
+
   const updateData = {}
   if (nombre !== undefined) updateData.nombre = nombre.trim()
   if (descripcion !== undefined) updateData.descripcion = descripcion?.trim() || null
   if (activo !== undefined) updateData.activo = activo
-  if (req.file) {
-    const nombreArch = `pauta-${id.slice(0, 8)}-${Date.now()}`
-    updateData.foto_url = await storage.guardar(req.file.buffer, req.file.mimetype, nombreArch)
-  }
 
-  const pauta = await prisma.pautaInspeccion.update({ where: { id }, data: updateData })
+  const pauta = Object.keys(updateData).length > 0
+    ? await prisma.pautaInspeccion.update({ where: { id }, data: updateData })
+    : await prisma.pautaInspeccion.findUnique({ where: { id } })
+  await mergeFotoUrls(pauta)
   return ok(res, pauta)
 }
 

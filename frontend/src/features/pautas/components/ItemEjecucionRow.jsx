@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Circle, AlertTriangle, ExternalLink, X, ZoomIn, ClipboardList } from 'lucide-react'
+import { CheckCircle2, Circle, AlertTriangle, ExternalLink, X, ZoomIn, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Button from '../../../shared/components/ui/Button'
 
@@ -19,11 +19,19 @@ export default function ItemEjecucionRow({
   puedeEjecutar,
   cargando,
 }) {
-  const [fotoAmpliada, setFotoAmpliada] = useState(false)
-  const esPropio    = item.ejecutado_por_id === usuarioId
-  const rutaHallazgo = item.hallazgo?.id
-    ? `/supervisor/hallazgos/${item.hallazgo.id}`
-    : null
+  const [lightboxIdx, setLightboxIdx] = useState(null)
+  const esPropio = item.ejecutado_por_id === usuarioId
+  const rutaHallazgo = item.hallazgo?.id ? `/supervisor/hallazgos/${item.hallazgo.id}` : null
+
+  // Construir lista de URLs: usar fotos[] si existe, si no caer en foto_url para backward compat
+  const urls = item.fotos?.length
+    ? item.fotos.map(f => f.foto_url)
+    : item.foto_url ? [item.foto_url] : []
+
+  function abrirLightbox(idx) { setLightboxIdx(idx) }
+  function cerrarLightbox()   { setLightboxIdx(null) }
+  function anterior() { setLightboxIdx(i => (i - 1 + urls.length) % urls.length) }
+  function siguiente() { setLightboxIdx(i => (i + 1) % urls.length) }
 
   return (
     <>
@@ -65,9 +73,7 @@ export default function ItemEjecucionRow({
               {item.ejecutado_por?.nombre}
               {item.fecha_inspeccion && (
                 <span className="ml-1.5 text-gray-400">
-                  · {new Date(item.fecha_inspeccion).toLocaleString('es-CL', {
-                    dateStyle: 'short', timeStyle: 'short',
-                  })}
+                  · {new Date(item.fecha_inspeccion).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
                 </span>
               )}
             </div>
@@ -78,21 +84,27 @@ export default function ItemEjecucionRow({
             <p className="mt-1 text-xs text-gray-600 italic">"{item.observacion}"</p>
           )}
 
-          {/* Foto evidencia — thumbnail inline */}
-          {item.foto_url && (
-            <button
-              onClick={() => setFotoAmpliada(true)}
-              className="mt-2 block relative group rounded-xl overflow-hidden border border-gray-200 w-28 h-20 flex-shrink-0"
-            >
-              <img
-                src={item.foto_url}
-                alt="Evidencia"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                <ZoomIn size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </button>
+          {/* Fotos evidencia */}
+          {urls.length > 0 && (
+            <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+              {urls.map((url, i) => (
+                <button
+                  key={i}
+                  onClick={() => abrirLightbox(i)}
+                  className="relative flex-shrink-0 group rounded-lg overflow-hidden border border-gray-200 w-20 h-16"
+                >
+                  <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                    <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  {urls.length > 1 && i === 0 && (
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/50 text-white text-[9px] px-1 rounded">
+                      1/{urls.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
 
           {/* Hallazgo vinculado */}
@@ -126,24 +138,46 @@ export default function ItemEjecucionRow({
       </div>
 
       {/* Lightbox */}
-      {fotoAmpliada && item.foto_url && (
+      {lightboxIdx !== null && urls.length > 0 && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
-          onClick={() => setFotoAmpliada(false)}
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={cerrarLightbox}
         >
           <button
             className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
-            onClick={() => setFotoAmpliada(false)}
+            onClick={cerrarLightbox}
           >
             <X size={20} />
           </button>
+
+          {urls.length > 1 && (
+            <>
+              <button
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+                onClick={e => { e.stopPropagation(); anterior() }}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                className="absolute right-16 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 transition-colors"
+                onClick={e => { e.stopPropagation(); siguiente() }}
+              >
+                <ChevronRight size={20} />
+              </button>
+            </>
+          )}
+
           <img
-            src={item.foto_url}
-            alt="Evidencia ampliada"
-            className="max-w-full max-h-[90vh] rounded-xl object-contain shadow-2xl"
+            src={urls[lightboxIdx]}
+            alt={`Foto ${lightboxIdx + 1}`}
+            className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
             onClick={e => e.stopPropagation()}
           />
+
           <div className="absolute bottom-4 left-0 right-0 text-center">
+            {urls.length > 1 && (
+              <p className="text-white/60 text-xs mb-1">{lightboxIdx + 1} / {urls.length}</p>
+            )}
             <p className="text-white/70 text-xs">
               {item.ubicacion_tecnica?.codigo} — {item.ubicacion_tecnica?.descripcion}
             </p>

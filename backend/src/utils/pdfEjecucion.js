@@ -78,8 +78,8 @@ function drawTableRow(doc, cols, values, y, odd) {
   let cx = MARGIN + 4
   cols.forEach(({ w }, i) => {
     const val = values[i]
-    if (val && val.__bold) {
-      tCell(doc, val.text, cx, y + 3.5, w, { bold: true, color: val.color ?? '#111827' })
+    if (val !== null && typeof val === 'object') {
+      tCell(doc, val.text, cx, y + 3.5, w, { bold: val.__bold, color: val.color ?? '#111827' })
     } else {
       tCell(doc, val, cx, y + 3.5, w, { color: '#374151' })
     }
@@ -219,18 +219,20 @@ async function generarPdfEjecucion(ejecucion, res) {
      .strokeColor('#cbd5e1').lineWidth(0.5).stroke()
   rowY += 10
 
-  // ── REGISTRO FOTOGRÁFICO ─────────────────────────────────────────────────────
-  const itemsConFoto = items.filter(i => i.foto_url && !i.foto_url.toLowerCase().endsWith('.webp'))
-  if (itemsConFoto.length > 0) {
+  // ── DETALLE POR ÍTEM (checklist + fotos) ────────────────────────────────────
+  const itemsDetalle = items.filter(i =>
+    i.inspeccionado && (i.respuestas?.length > 0 || i.fotos?.length > 0 || i.foto_url)
+  )
+  if (itemsDetalle.length > 0) {
     doc.y = rowY
+    sectionTitle(doc, `Detalle por Ítem Inspeccionado (${itemsDetalle.length})`)
 
-    sectionTitle(doc, `Registro Fotográfico (${itemsConFoto.length} imagen${itemsConFoto.length !== 1 ? 'es' : ''})`)
-
-    for (const item of itemsConFoto) {
-      if (doc.y > PAGE_H - 180) { doc.addPage(); doc.y = MARGIN + 20 }
-
-      // Encabezado del ítem
+    for (const item of itemsDetalle) {
       const idxGlobal = items.indexOf(item) + 1
+
+      if (doc.y > PAGE_H - 100) { doc.addPage(); doc.y = MARGIN + 20 }
+
+      // Cabecera del ítem
       doc.rect(MARGIN, doc.y, CONTENT_W, 16).fill('#f1f5f9')
       doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#374151')
          .text(
@@ -240,30 +242,59 @@ async function generarPdfEjecucion(ejecucion, res) {
          )
       doc.y += 18
 
-      const buffer = await fetchFotoBuffer(item.foto_url)
-      if (buffer) {
-        try {
-          const maxW = CONTENT_W
-          const maxH = 200
-          doc.image(buffer, MARGIN, doc.y, { fit: [maxW, maxH], align: 'center' })
-          doc.moveDown(0.6)
-        } catch {
-          doc.fontSize(8).fillColor('#9ca3af').text('No se pudo incrustar la imagen.', MARGIN, doc.y)
-          doc.moveDown(0.4)
+      // Inspector + fecha
+      const fechaInsp = item.fecha_inspeccion
+        ? new Date(item.fecha_inspeccion).toLocaleString('es-CL')
+        : '—'
+      doc.fontSize(7.5).font('Helvetica').fillColor('#6b7280')
+         .text(`Inspector: ${item.ejecutado_por?.nombre ?? '—'}   ·   Fecha: ${fechaInsp}`, MARGIN + 4, doc.y, { width: CONTENT_W - 8 })
+      doc.moveDown(0.3)
+
+      // Checklist
+      if (item.respuestas?.length > 0) {
+        doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#6366f1')
+           .text('Checklist:', MARGIN + 4, doc.y)
+        doc.moveDown(0.2)
+
+        for (const resp of item.respuestas) {
+          if (doc.y > PAGE_H - 40) { doc.addPage(); doc.y = MARGIN + 20 }
+          const label   = resp.campo?.etiqueta ?? '?'
+          const valor   = resp.valor ?? '—'
+          const unidad  = resp.campo?.unidad_medida ? ` ${resp.campo.unidad_medida}` : ''
+          doc.fontSize(7.5).font('Helvetica').fillColor('#374151')
+             .text(`  •  ${label}: ${valor}${unidad}`, MARGIN + 12, doc.y, { width: CONTENT_W - 20 })
+          doc.moveDown(0.15)
         }
-      } else {
-        doc.fontSize(8).fillColor('#9ca3af').text('Imagen no disponible.', MARGIN, doc.y)
-        doc.moveDown(0.4)
+        doc.moveDown(0.25)
       }
 
-      // Observación debajo de la foto
+      // Fotos (usa tabla ItemEjecucionFoto ordenada; cae en foto_url si no hay)
+      const fotoUrls = item.fotos?.length > 0
+        ? item.fotos.map(f => f.foto_url)
+        : item.foto_url ? [item.foto_url] : []
+
+      for (const url of fotoUrls) {
+        if (doc.y > PAGE_H - 140) { doc.addPage(); doc.y = MARGIN + 20 }
+        const buffer = await fetchFotoBuffer(url)
+        if (buffer) {
+          try {
+            doc.image(buffer, { fit: [CONTENT_W, 180], align: 'center' })
+            doc.moveDown(0.4)
+          } catch {
+            doc.fontSize(8).fillColor('#9ca3af').text('No se pudo incrustar la imagen.', MARGIN, doc.y)
+            doc.moveDown(0.3)
+          }
+        }
+      }
+
+      // Observación
       if (item.observacion) {
         doc.fontSize(8).font('Helvetica').fillColor('#4b5563')
-           .text(`Obs: "${item.observacion}"`, MARGIN, doc.y, { width: CONTENT_W, lineGap: 2 })
-        doc.moveDown(0.4)
+           .text(`Obs: "${item.observacion}"`, MARGIN + 4, doc.y, { width: CONTENT_W - 8, lineGap: 2 })
+        doc.moveDown(0.3)
       }
 
-      doc.moveDown(0.3)
+      doc.moveDown(0.4)
     }
 
     rowY = doc.y

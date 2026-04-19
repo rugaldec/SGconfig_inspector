@@ -27,6 +27,7 @@ const HistorialPautasPage      = lazy(() => import('./features/pautas/pages/Hist
 const ReporteEjecucionPage     = lazy(() => import('./features/pautas/pages/ReporteEjecucionPage'))
 const DashboardDisciplinaPage  = lazy(() => import('./features/dashboard/DashboardDisciplinaPage'))
 const PlantillasPage           = lazy(() => import('./features/plantillas/pages/PlantillasPage'))
+const PerfilPage               = lazy(() => import('./features/usuarios/pages/PerfilPage'))
 
 function PageLoader() {
   return (
@@ -101,6 +102,13 @@ export default function App() {
                 <Route path="/admin/logs-correo"              element={<LogsCorreoPage />} />
                 <Route path="/admin/logs-acceso"              element={<LogsAccesoPage />} />
                 <Route path="/admin/plantillas"               element={<PlantillasPage />} />
+              </Route>
+            </Route>
+
+            {/* Perfil — todos los roles */}
+            <Route element={<ProtectedRoute roles={['INSPECTOR', 'SUPERVISOR', 'ADMINISTRADOR']} />}>
+              <Route element={<AppShell />}>
+                <Route path="/perfil" element={<PerfilPage />} />
               </Route>
             </Route>
 
