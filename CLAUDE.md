@@ -665,6 +665,48 @@ Antes de considerar una feature lista, verificar:
 - **Multer `.array()` vs `.single()`**: Archivos en `req.files[]` (array) no `req.file` (objeto). Actualizar todos los puntos de acceso en el controller.
 - **Backward compat en uploads**: Mantener `foto_url` en tabla principal + tabla relacional `HallazgoFoto`. PDF y correos usan `foto_url` como fallback.
 
+### Sesión 5 — 2026-04-19
+
+#### Bugs corregidos
+
+- **Avatares rotos (mostraban texto "avat")**: `foto_url` tenía prefijo `http://localhost:3001` hardcodeado, bypasseando el proxy Vite. Eliminado en `UsuariosPage.jsx`, `PerfilPage.jsx`, `AppShell.jsx`. Las rutas `/uploads/...` van directo al proxy.
+- **Campo numérico `0` inválido**: el placeholder mostraba `0` pero el estado era `undefined`. Solución: `defaultsNumericos(campos)` pre-inicializa campos NUMERICO con `'0'` al abrir el modal (`abrirMarcar` y `abrirMarcarGrupo`).
+- **PDF ejecución `[object Object]`**: `estadoItem = { text, __bold: false }` — `false` es falsy, caía en `String(objeto)`. Cambiado a `typeof val === 'object' && val !== null` en `drawTableRow`.
+
+#### Features nuevas
+
+- **Multi-foto en ítems de ejecución de pauta** (hasta 5):
+  - Nueva tabla Prisma: `ItemEjecucionFoto { id, item_ejecucion_id, foto_url, orden }`.
+  - Backend: `uploadFotos('fotos', 5)`, guarda en `ItemEjecucionFoto.createMany` + `foto_url` para backward compat.
+  - Frontend: componente `FotosInput` (hero + tira de miniaturas + botón agregar) en `EjecucionDetallePage`.
+  - `ItemEjecucionRow`: lightbox con flechas (`ChevronLeft/Right`), contador "X/N", estado `lightboxIdx`.
+
+- **PDF ejecución: checklist y fotos ordenadas**:
+  - Query incluye `fotos: { orderBy: { orden: 'asc' } }` y `respuestas` con `campo`.
+  - Nueva sección "Detalle por Ítem": inspector + fecha, checklist (etiqueta: valor unidad), fotos en orden.
+  - Reemplaza la vieja sección de solo fotos.
+
+- **Página de perfil** (`/perfil`, todos los roles):
+  - `PerfilPage.jsx` con avatar editable (botón cámara), campos de perfil y badge de rol.
+  - Hooks: `useActualizarMiPerfil`, `useActualizarMiFoto`, `useActualizarFotoUsuario`.
+  - Rutas backend: `PATCH /api/usuarios/me`, `POST /api/usuarios/me/foto`, `POST /api/usuarios/:id/foto`.
+
+- **Importar checklist CSV** en `PlantillasPage`:
+  - Líneas con `*` se ignoran (comentarios). Formato: `etiqueta,tipo,obligatorio[,unidad]`.
+  - Aliases de tipo: CHECKBOX/SI_NO, NUMERICO/NUM, TEXTO, SELECCION, FECHA.
+  - Tooltip al hover sobre el botón muestra el formato de ejemplo.
+  - Feedback: banner verde (N campos importados) o rojo (errores).
+
+- **Avatar por rol al crear usuario**:
+  - `FOTO_DEFAULT_ROL` en `usuariosController.js`: ADMINISTRADOR/SUPERVISOR/INSPECTOR con íconos distintos de `/uploads/avatar-*.{jpg,webp}`.
+  - `foto_url: FOTO_DEFAULT_ROL[rol] ?? null` en `prisma.usuario.create`.
+
+#### Patrones clave
+
+- **Proxy Vite para uploads**: nunca incluir `http://localhost:3001` en `foto_url`. Usar solo `/uploads/filename`. El proxy Vite y Nginx en producción ya manejan el routing.
+- **Pre-inicializar campos numéricos**: en modales de registro de ítems, `defaultsNumericos(campos)` retorna `{ [id]: '0' }` para todos los campos NUMERICO, evitando que `0` sea rechazado como vacío.
+- **`typeof val === 'object'` en pdfkit rows**: al mezclar strings y objetos `{ text, __bold }` en arrays de valores de tabla, usar comprobación de tipo y no `val.__bold` (que puede ser `false`).
+
 ---
 
 ## Feature Planificada: Pautas de Inspección
