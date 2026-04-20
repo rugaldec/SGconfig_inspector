@@ -7,6 +7,8 @@ dist/
 *.local
 uploads/*
 !uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep
 .prisma/
 prisma/migrations/*.sql
 *.log
