@@ -28,6 +28,9 @@ const ReporteEjecucionPage     = lazy(() => import('./features/pautas/pages/Repo
 const DashboardDisciplinaPage  = lazy(() => import('./features/dashboard/DashboardDisciplinaPage'))
 const PlantillasPage           = lazy(() => import('./features/plantillas/pages/PlantillasPage'))
 const PerfilPage               = lazy(() => import('./features/usuarios/pages/PerfilPage'))
+const BitacoraPage             = lazy(() => import('./features/bitacora/pages/BitacoraPage'))
+const NuevaEntradaPage         = lazy(() => import('./features/bitacora/pages/NuevaEntradaPage'))
+const EntradaDetallePage       = lazy(() => import('./features/bitacora/pages/EntradaDetallePage'))
 
 function PageLoader() {
   return (
@@ -66,6 +69,9 @@ export default function App() {
                 <Route path="/inspector/ejecuciones/:id"      element={<EjecucionDetallePage />} />
                 <Route path="/inspector/historial-pautas"     element={<HistorialPautasPage />} />
                 <Route path="/inspector/historial-pautas/:id" element={<ReporteEjecucionPage />} />
+                <Route path="/inspector/bitacora"             element={<BitacoraPage baseUrl="/inspector" />} />
+                <Route path="/inspector/bitacora/nueva"       element={<NuevaEntradaPage baseUrl="/inspector" />} />
+                <Route path="/inspector/bitacora/entrada/:id" element={<EntradaDetallePage baseUrl="/inspector" />} />
               </Route>
             </Route>
 
@@ -81,6 +87,9 @@ export default function App() {
                 <Route path="/supervisor/ejecuciones/:id"       element={<EjecucionDetallePage />} />
                 <Route path="/supervisor/historial-pautas"      element={<HistorialPautasPage />} />
                 <Route path="/supervisor/historial-pautas/:id"  element={<ReporteEjecucionPage />} />
+                <Route path="/supervisor/bitacora"              element={<BitacoraPage baseUrl="/supervisor" />} />
+                <Route path="/supervisor/bitacora/nueva"        element={<NuevaEntradaPage baseUrl="/supervisor" />} />
+                <Route path="/supervisor/bitacora/entrada/:id"  element={<EntradaDetallePage baseUrl="/supervisor" />} />
               </Route>
             </Route>
 
@@ -102,6 +111,9 @@ export default function App() {
                 <Route path="/admin/logs-correo"              element={<LogsCorreoPage />} />
                 <Route path="/admin/logs-acceso"              element={<LogsAccesoPage />} />
                 <Route path="/admin/plantillas"               element={<PlantillasPage />} />
+                <Route path="/admin/bitacora"                 element={<BitacoraPage baseUrl="/supervisor" />} />
+                <Route path="/admin/bitacora/nueva"           element={<NuevaEntradaPage baseUrl="/supervisor" />} />
+                <Route path="/admin/bitacora/entrada/:id"     element={<EntradaDetallePage baseUrl="/supervisor" />} />
               </Route>
             </Route>
 

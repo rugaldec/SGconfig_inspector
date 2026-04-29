@@ -55,9 +55,10 @@ model Disciplina {
   activo      Boolean  @default(true)
   created_at  DateTime @default(now())
 
-  usuarios    UsuarioDisciplina[]
-  pautas      PautaInspeccion[]
-  plantillas  PlantillaVerificacion[]
+  usuarios          UsuarioDisciplina[]
+  pautas            PautaInspeccion[]
+  plantillas        PlantillaVerificacion[]
+  entradas_bitacora BitacoraEntrada[]
 
   @@map("disciplinas")
 }
@@ -91,14 +92,15 @@ model Usuario {
   observaciones       String?
   foto_url            String?
 
-  disciplinas         UsuarioDisciplina[]
-  hallazgos           Hallazgo[]       @relation("InspectorHallazgos")
-  comentarios         Comentario[]
-  cambios             CambioEstado[]
-  logs_acceso         LogAcceso[]
-  pautas_creadas      PautaInspeccion[] @relation("PautasCreadas")
-  ejecuciones_creadas EjecucionPauta[] @relation("EjecucionesCreadas")
-  items_ejecutados    ItemEjecucion[]  @relation("ItemsEjecutados")
+  disciplinas           UsuarioDisciplina[]
+  hallazgos             Hallazgo[]       @relation("InspectorHallazgos")
+  comentarios           Comentario[]
+  cambios               CambioEstado[]
+  logs_acceso           LogAcceso[]
+  pautas_creadas        PautaInspeccion[] @relation("PautasCreadas")
+  ejecuciones_creadas   EjecucionPauta[] @relation("EjecucionesCreadas")
+  items_ejecutados      ItemEjecucion[]  @relation("ItemsEjecutados")
+  entradas_bitacora     BitacoraEntrada[]
 
   @@map("usuarios")
 }
@@ -136,6 +138,7 @@ model UbicacionTecnica {
   pautas_inspeccion PautaInspeccion[] @relation("PautaZonaFuncional")
   pautas_ubts       PautaUBT[]        @relation("PautaUBTUbicacion")
   items_ejecucion   ItemEjecucion[]   @relation("ItemEjecucionUbicacion")
+  entradas_bitacora BitacoraEntrada[]
 
   @@index([padre_id])
   @@index([nivel])
@@ -402,4 +405,65 @@ model RespuestaCampo {
   @@unique([item_ejecucion_id, campo_id])
   @@index([item_ejecucion_id])
   @@map("respuestas_campo")
+}
+
+// ── Bitácora de Novedades ─────────────────────────────────────────────────────
+
+enum TipoBitacora {
+  NOVEDAD
+  INCIDENTE
+  TRABAJO_REALIZADO
+  CONDICION_AREA
+  REUNION
+  OTRO
+  SIN_NOVEDADES
+}
+
+model BitacoraEntrada {
+  id            String           @id @default(uuid())
+  fecha         DateTime         @db.Date
+  titulo        String
+  descripcion   String
+  tipo          TipoBitacora
+  autor_id      String
+  autor         Usuario          @relation(fields: [autor_id], references: [id])
+  disciplina_id String
+  disciplina    Disciplina       @relation(fields: [disciplina_id], references: [id])
+  ubicacion_id  String?
+  ubicacion     UbicacionTecnica? @relation(fields: [ubicacion_id], references: [id])
+  fotos         BitacoraFoto[]
+  archivos      BitacoraArchivo[]
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
+
+  @@index([disciplina_id])
+  @@index([fecha])
+  @@index([autor_id])
+  @@map("bitacora_entradas")
+}
+
+model BitacoraFoto {
+  id         String          @id @default(uuid())
+  entrada_id String
+  entrada    BitacoraEntrada @relation(fields: [entrada_id], references: [id], onDelete: Cascade)
+  foto_url   String
+  caption    String?
+  orden      Int             @default(0)
+
+  @@index([entrada_id])
+  @@map("bitacora_fotos")
+}
+
+model BitacoraArchivo {
+  id          String          @id @default(uuid())
+  entrada_id  String
+  entrada     BitacoraEntrada @relation(fields: [entrada_id], references: [id], onDelete: Cascade)
+  nombre      String
+  archivo_url String
+  mime_type   String
+  tamanio     Int
+  created_at  DateTime        @default(now())
+
+  @@index([entrada_id])
+  @@map("bitacora_archivos")
 }

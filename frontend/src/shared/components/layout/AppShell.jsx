@@ -4,7 +4,7 @@ import { useAuth } from '../../../features/auth/useAuth'
 import {
   LayoutDashboard, ClipboardList, PlusCircle,
   Users, MapPin, Mail, History, LogOut, Menu, X, Shield,
-  ClipboardCheck, Wrench, BookOpen, FlaskConical, ChevronDown, UserCircle,
+  ClipboardCheck, Wrench, BookOpen, FlaskConical, ChevronDown, UserCircle, NotebookPen,
 } from 'lucide-react'
 
 // ── Grupos de navegación por rol ─────────────────────────────────────────────
@@ -14,6 +14,12 @@ const NAV_INSPECTOR_GROUPS = [
     label: 'Inicio',
     items: [
       { to: '/inspector/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    ],
+  },
+  {
+    label: 'Bitácora',
+    items: [
+      { to: '/inspector/bitacora', icon: NotebookPen, label: 'Bitácora' },
     ],
   },
   {
@@ -42,6 +48,12 @@ const NAV_SUP_GROUPS = [
     ],
   },
   {
+    label: 'Bitácora',
+    items: [
+      { to: '/supervisor/bitacora', icon: NotebookPen, label: 'Bitácora' },
+    ],
+  },
+  {
     label: 'Pautas',
     items: [
       { to: '/supervisor/mi-disciplina',   icon: LayoutDashboard, label: 'Mi Disciplina'    },
@@ -58,6 +70,12 @@ const NAV_ADMIN_GROUPS = [
       { to: '/supervisor/dashboard', icon: LayoutDashboard, label: 'Dashboard'      },
       { to: '/supervisor/hallazgos', icon: ClipboardList,   label: 'Hallazgos'      },
       { to: '/supervisor/nuevo',     icon: PlusCircle,      label: 'Nuevo Hallazgo' },
+    ],
+  },
+  {
+    label: 'Bitácora',
+    items: [
+      { to: '/admin/bitacora', icon: NotebookPen, label: 'Bitácora' },
     ],
   },
   {
