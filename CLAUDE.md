@@ -707,6 +707,53 @@ Antes de considerar una feature lista, verificar:
 - **Pre-inicializar campos numéricos**: en modales de registro de ítems, `defaultsNumericos(campos)` retorna `{ [id]: '0' }` para todos los campos NUMERICO, evitando que `0` sea rechazado como vacío.
 - **`typeof val === 'object'` en pdfkit rows**: al mezclar strings y objetos `{ text, __bold }` en arrays de valores de tabla, usar comprobación de tipo y no `val.__bold` (que puede ser `false`).
 
+### Sesión 6 — 2026-04-21
+
+#### Features nuevas
+
+- **Módulo Bitácora de Novedades** — rama `feature/bitacora-novedades`, mergeada a `main`:
+  - Tablas: `BitacoraEntrada`, `BitacoraFoto`, `BitacoraArchivo`, enum `TipoBitacora` (7 valores incl. `SIN_NOVEDADES`).
+  - Vista unificada cronológica agrupada por día: entradas manuales + hallazgos + inspecciones (3 queries en paralelo en backend).
+  - CRUD de entradas (solo semana actual). Editar/eliminar dentro de las 24h de creación.
+  - Fotos (máx 5) y archivos adjuntos (PDF, Word, Excel — máx 10 archivos de 20 MB).
+  - Flujo "Confirmar sin novedades" (`SIN_NOVEDADES`): solo SUPERVISOR/ADMIN, una por semana por disciplina.
+  - Reporte PDF semanal: `utils/pdfBitacora.js` con resumen ejecutivo + detalle por día.
+  - `utils/semanaISO.js`: `toSemanaISO()`, `rangoSemana()`, `semanaActual()`.
+  - `middleware/upload.js`: `uploadBitacora()` acepta imágenes (10 MB) y documentos (20 MB).
+  - Frontend: `BitacoraPage`, `NuevaEntradaPage`, `EntradaDetallePage` + 10 componentes.
+  - Disciplina como eje de visibilidad: inspector ve su disciplina, supervisor sus disciplinas asignadas, admin todo.
+
+#### Bugs corregidos
+
+- **Admin en Modo prueba no veía disciplinas**: `getDisciplinaIds()` chequeaba solo `user.rol`, pero en modo prueba el middleware sobreescribe `rol` con el rol simulado y guarda el original en `user.rolReal`. Fix: `user.rol === 'ADMINISTRADOR' || user.rolReal === 'ADMINISTRADOR'`.
+
+#### Patrones clave
+
+- **`rolReal` en modo prueba**: el middleware de auth guarda `req.user.rolReal = 'ADMINISTRADOR'` al simular otro rol. Cualquier lógica que necesite distinguir el rol real del simulado debe verificar ambos campos.
+- **Disciplina como filtro de visibilidad**: `getDisciplinaIds()` retorna `null` (sin filtro) para admin, array de ids para el resto. `disciplinaWhere()` construye el `where` de Prisma correspondiente.
+
+### Sesión 7 — 2026-04-29
+
+#### Features nuevas
+
+- **Seguimiento periódico de hallazgos**:
+  - Nuevas tablas: `SeguimientoHallazgo { id, hallazgo_id, autor_id, observacion, fotos[], created_at }` + `SeguimientoFoto { id, seguimiento_id, foto_url, orden }`.
+  - `utils/hallazgoActividad.js`: `ultimaActividad()` toma el MAX de fecha_creacion, último CambioEstado, último Comentario y último SeguimientoHallazgo. `diasSinActividad()` y `requiereSeguimiento()` basados en eso.
+  - Umbral configurable: variable `SEGUIMIENTO_DIAS` (default 7 días).
+  - `controllers/seguimientoController.js`: `listar`, `crear` (mín. 1 foto obligatoria), `eliminar` (solo ADMIN).
+  - Rutas: `GET/POST /api/hallazgos/:id/seguimientos` + `DELETE /api/hallazgos/:id/seguimientos/:sid`.
+  - Detalle del hallazgo incluye `dias_sin_actividad`, `requiere_seguimiento` y `seguimientos[]`.
+  - Inspector solo puede registrar seguimiento en sus propios hallazgos. Supervisor/Admin en cualquiera.
+  - `BannerInactividad`: alerta amarilla (7-14d) / naranja (15-29d) / roja (30+d) en el detalle del hallazgo.
+  - `ModalSeguimiento`: observación + CamaraInput con mínimo 1 foto.
+  - `SeguimientoItem`: tarjeta teal en sección "Confirmaciones de condición" con lightbox.
+  - Plan pendiente (Fase 2): `HallazgosAtrasados` en el Dashboard (`plan_seguimiento.md`).
+
+#### Patrones clave
+
+- **`ultimaActividad` considera 4 fuentes**: fecha_creacion del hallazgo, último CambioEstado, último Comentario, último SeguimientoHallazgo. Agregar nuevas fuentes de actividad requiere actualizar esta función.
+- **`prisma generate` falla si el backend está corriendo** (Windows lock del `.dll`): detener el backend, correr generate, reiniciar.
+
 ---
 
 ## Feature Planificada: Pautas de Inspección
