@@ -17,7 +17,7 @@ const EXT_MIME = {
 
 // Obtiene array de disciplina_ids para el usuario actual (null = admin, sin filtro)
 async function getDisciplinaIds(user) {
-  if (user.rol === 'ADMINISTRADOR') return null
+  if (user.rol === 'ADMINISTRADOR' || user.rolReal === 'ADMINISTRADOR') return null
   const registros = await prisma.usuarioDisciplina.findMany({
     where: { usuario_id: user.id },
     select: { disciplina_id: true },
