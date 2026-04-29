@@ -9,9 +9,13 @@ import { hallazgosApi } from '../api'
 import EstadoBadge from '../components/EstadoBadge'
 import CriticidadBadge from '../components/CriticidadBadge'
 import TimelineEstados from '../components/TimelineEstados'
+import BannerInactividad from '../components/BannerInactividad'
+import ModalSeguimiento from '../components/ModalSeguimiento'
+import SeguimientoItem from '../components/SeguimientoItem'
 import Spinner from '../../../shared/components/ui/Spinner'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
+import { useAuth } from '../../auth/useAuth'
 import { ArrowLeft, FileDown, Camera, X } from 'lucide-react'
 
 function SeccionEstado({ hallazgo, mutCambiarEstado }) {
@@ -442,9 +446,11 @@ function FotoGaleria({ fotos = [], fallback, titulo, colorHeader }) {
 export default function HallazgoDetallePage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { query, mutCambiarEstado, mutAsignarSap, mutComentario } = useHallazgoDetalle(id)
   const { data: h, isLoading } = query
   const [exporting, setExporting] = useState(false)
+  const [modalSeguimiento, setModalSeguimiento] = useState(false)
 
   async function handleExportarPdf() {
     setExporting(true)
@@ -490,6 +496,14 @@ export default function HallazgoDetallePage() {
         </p>
       </div>
 
+      {/* Banner inactividad */}
+      {h.requiere_seguimiento && (user?.rol !== 'INSPECTOR' || h.inspector_id === user?.id) && (
+        <BannerInactividad
+          dias={h.dias_sin_actividad}
+          onConfirmar={() => setModalSeguimiento(true)}
+        />
+      )}
+
       {/* Fotos iniciales */}
       <FotoGaleria
         fotos={(h.fotos ?? []).filter(f => f.tipo === 'INICIAL')}
@@ -517,7 +531,26 @@ export default function HallazgoDetallePage() {
         <TimelineEstados cambios={h.cambios_estado} />
       </div>
 
+      {/* Seguimientos de condición */}
+      {(h.seguimientos ?? []).length > 0 && (
+        <div className="bg-white rounded-xl border p-4">
+          <h2 className="font-semibold text-gray-700 mb-4">Confirmaciones de Condición</h2>
+          <div className="space-y-0">
+            {h.seguimientos.map(s => (
+              <SeguimientoItem key={s.id} seguimiento={s} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <SeccionComentarios hallazgo={h} mutComentario={mutComentario} />
+
+      {modalSeguimiento && (
+        <ModalSeguimiento
+          hallazgoId={h.id}
+          onClose={() => setModalSeguimiento(false)}
+        />
+      )}
     </div>
   )
 }

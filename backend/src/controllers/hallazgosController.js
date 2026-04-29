@@ -6,6 +6,7 @@ const { puedeTransicionar } = require('../utils/estadoMachine')
 const { guardar } = require('../utils/storageService')
 const { generarPdfHallazgo } = require('../utils/pdfHallazgo')
 const { notificarNuevoHallazgo } = require('../utils/notificarHallazgo')
+const { diasSinActividad, requiereSeguimiento } = require('../utils/hallazgoActividad')
 
 const INCLUDE_DETALLE = {
   inspector: { select: { id: true, nombre: true, email: true } },
@@ -20,6 +21,13 @@ const INCLUDE_DETALLE = {
   },
   fotos: {
     select: { id: true, foto_url: true, tipo: true, created_at: true },
+    orderBy: { created_at: 'asc' },
+  },
+  seguimientos: {
+    include: {
+      autor: { select: { id: true, nombre: true, rol: true, foto_url: true } },
+      fotos: { select: { id: true, foto_url: true, orden: true }, orderBy: { orden: 'asc' } },
+    },
     orderBy: { created_at: 'asc' },
   },
 }
@@ -139,7 +147,11 @@ async function detalle(req, res) {
   if (req.user.rol === 'INSPECTOR' && h.inspector_id !== req.user.id) {
     return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
   }
-  return ok(res, h)
+  return ok(res, {
+    ...h,
+    dias_sin_actividad: diasSinActividad(h),
+    requiere_seguimiento: requiereSeguimiento(h),
+  })
 }
 
 async function cambiarEstado(req, res) {

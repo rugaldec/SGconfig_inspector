@@ -101,6 +101,7 @@ model Usuario {
   ejecuciones_creadas   EjecucionPauta[] @relation("EjecucionesCreadas")
   items_ejecutados      ItemEjecucion[]  @relation("ItemsEjecutados")
   entradas_bitacora     BitacoraEntrada[]
+  seguimientos          SeguimientoHallazgo[]
 
   @@map("usuarios")
 }
@@ -174,6 +175,7 @@ model Hallazgo {
   logs_correo    LogCorreo[]
   item_ejecucion ItemEjecucion?
   fotos          HallazgoFoto[]
+  seguimientos   SeguimientoHallazgo[]
 
   @@index([estado])
   @@index([criticidad])
@@ -466,4 +468,30 @@ model BitacoraArchivo {
 
   @@index([entrada_id])
   @@map("bitacora_archivos")
+}
+
+model SeguimientoHallazgo {
+  id          String            @id @default(uuid())
+  hallazgo_id String
+  hallazgo    Hallazgo          @relation(fields: [hallazgo_id], references: [id], onDelete: Cascade)
+  autor_id    String
+  autor       Usuario           @relation(fields: [autor_id], references: [id])
+  observacion String
+  fotos       SeguimientoFoto[]
+  created_at  DateTime          @default(now())
+
+  @@index([hallazgo_id])
+  @@index([created_at])
+  @@map("seguimientos_hallazgo")
+}
+
+model SeguimientoFoto {
+  id             String              @id @default(uuid())
+  seguimiento_id String
+  seguimiento    SeguimientoHallazgo @relation(fields: [seguimiento_id], references: [id], onDelete: Cascade)
+  foto_url       String
+  orden          Int                 @default(0)
+
+  @@index([seguimiento_id])
+  @@map("seguimientos_fotos")
 }

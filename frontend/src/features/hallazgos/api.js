@@ -33,6 +33,12 @@ export const hallazgosApi = {
     window.location.href = `/api/hallazgos/export?${qs}`
   },
 
+  listarSeguimientos: (id) =>
+    apiClient.get(`/hallazgos/${id}/seguimientos`).then(r => r.data.data),
+
+  crearSeguimiento: (id, formData) =>
+    apiClient.post(`/hallazgos/${id}/seguimientos`, formData).then(r => r.data.data),
+
   exportarPdf: async (id) => {
     const r = await apiClient.get(`/hallazgos/${id}/pdf`, { responseType: 'blob' })
     const filename = r.headers['content-disposition']?.match(/filename="(.+?)"/)?.[1]
