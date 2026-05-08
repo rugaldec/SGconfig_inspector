@@ -5,7 +5,9 @@ import {
   LayoutDashboard, ClipboardList, PlusCircle,
   Users, MapPin, Mail, History, LogOut, Menu, X, Shield,
   ClipboardCheck, Wrench, BookOpen, FlaskConical, ChevronDown, UserCircle, NotebookPen,
+  HelpCircle,
 } from 'lucide-react'
+import HelpPanel from '../../../features/help/HelpPanel'
 
 // ── Grupos de navegación por rol ─────────────────────────────────────────────
 
@@ -278,6 +280,7 @@ export default function AppShell() {
   const groups = navGroups(rolEfectivo)
   const bottomItems = flatItems(groups).slice(0, 4)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   async function handleLogout() {
     await logout()
@@ -311,6 +314,13 @@ export default function AppShell() {
             ${isSimulating ? 'bg-amber-500 text-white' : 'text-blue-300 bg-blue-800'}`}>
             {isSimulating ? rolEfectivo : user?.rol}
           </span>
+          <button
+            onClick={() => setHelpOpen(true)}
+            title="Ayuda"
+            className="p-1.5 hover:bg-blue-800 rounded-lg transition-colors"
+          >
+            <HelpCircle size={18} />
+          </button>
           <NavLink
             to="/perfil"
             title="Mi Perfil"
@@ -426,6 +436,13 @@ export default function AppShell() {
           </NavLink>
         ))}
       </nav>
+
+      {/* Panel de ayuda */}
+      <HelpPanel
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        userRol={rolEfectivo}
+      />
     </div>
   )
 }
