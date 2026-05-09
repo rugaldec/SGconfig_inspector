@@ -42,7 +42,7 @@ async function crear(req, res) {
   const errorPwd = validarPassword(password)
   if (errorPwd) return fail(res, 'PASSWORD_INVALIDO', errorPwd)
 
-  const existe = await prisma.usuario.findUnique({ where: { email } })
+  const existe = await prisma.usuario.findUnique({ where: { email: email.trim().toLowerCase() } })
   if (existe) return fail(res, 'EMAIL_DUPLICADO', 'El email ya está registrado', 409)
 
   const hash = await bcrypt.hash(password, 12)
@@ -76,8 +76,8 @@ async function actualizar(req, res) {
   const user = await prisma.usuario.findUnique({ where: { id: req.params.id } })
   if (!user) return fail(res, 'NOT_FOUND', 'Usuario no encontrado', 404)
 
-  if (email && email !== user.email) {
-    const existe = await prisma.usuario.findUnique({ where: { email } })
+  if (email && email.trim().toLowerCase() !== user.email) {
+    const existe = await prisma.usuario.findUnique({ where: { email: email.trim().toLowerCase() } })
     if (existe) return fail(res, 'EMAIL_DUPLICADO', 'El email ya está registrado', 409)
   }
 

@@ -38,11 +38,12 @@ async function registrarAcceso({ usuario_id, email, ip, exitoso, motivo }) {
 }
 
 async function login(req, res) {
-  const { email, password } = req.body
+  const { email: emailRaw, password } = req.body
   const ip = getClientIp(req)
 
-  if (!email || !password) return fail(res, 'DATOS_INCOMPLETOS', 'Email y contraseña requeridos')
+  if (!emailRaw || !password) return fail(res, 'DATOS_INCOMPLETOS', 'Email y contraseña requeridos')
 
+  const email = emailRaw.trim().toLowerCase()
   const user = await prisma.usuario.findUnique({ where: { email } })
 
   if (!user) {
