@@ -468,11 +468,59 @@
 
   /* ── RESPONSIVE ────────────────────────────────────────── */
   @media (max-width: 640px) {
+    /* Navbar */
     .navbar { padding: 0 16px; }
     .nav-link { display: none; }
-    .flow-row { gap: 0; }
+    .btn-access { font-size: 12px; padding: 7px 14px; }
+
+    /* Hero */
+    .hero { padding: 52px 20px 72px; }
+    .hero h1 { letter-spacing: -0.5px; }
+    .hero p { font-size: 15px; }
+    .hero-cta { flex-direction: column; align-items: center; gap: 10px; }
+    .btn-primary, .btn-secondary { width: 100%; max-width: 300px; justify-content: center; padding: 14px 24px; }
+    .hero-stats { gap: 20px; }
+    .stat-num { font-size: 22px; }
+
+    /* Sections */
+    .section { padding: 48px 16px; }
+    .section-sub { font-size: 14px; margin-bottom: 32px; }
+
+    /* Roles */
+    .roles-grid { grid-template-columns: 1fr; gap: 14px; }
+    .role-card { padding: 22px 18px; }
+
+    /* Flow */
+    .flow-section { padding: 48px 16px; }
+    .flow-row {
+      flex-direction: column;
+      gap: 12px;
+      overflow-x: visible;
+    }
+    .flow-step { min-width: unset; padding: 14px 16px; flex-direction: row; align-items: center; text-align: left; gap: 14px; }
     .flow-step:not(:last-child)::after { display: none; }
-    .hero-stats { gap: 24px; }
+    .flow-icon { font-size: 22px; margin-bottom: 0; flex-shrink: 0; }
+    .flow-num { margin-bottom: 0; flex-shrink: 0; }
+    .flow-step h4 { margin-bottom: 2px; }
+
+    /* Estados */
+    .estados-bar { padding: 16px; gap: 6px; }
+    .estado { font-size: 11px; padding: 6px 12px; }
+
+    /* Módulos */
+    .modules-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .module-card { padding: 16px 14px; }
+    .module-card h4 { font-size: 13px; }
+
+    /* CTA final */
+    .cta-section { padding: 56px 20px; }
+    .btn-cta { width: 100%; max-width: 300px; justify-content: center; padding: 15px 24px; }
+  }
+
+  @media (max-width: 400px) {
+    .modules-grid { grid-template-columns: 1fr; }
+    .hero-stats { gap: 14px; }
+    .stat { flex: 0 0 45%; }
   }
 </style>
 </head>
