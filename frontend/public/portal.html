@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SGConfi Inspector — Portal de Acceso</title>
+<meta name="description" content="Sistema de Gestión de Hallazgos Técnicos. Plataforma PWA para inspección en campo con trazabilidad total.">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --blue-900: #1e3a8a;
+    --blue-800: #1e40af;
+    --blue-600: #2563eb;
+    --blue-100: #dbeafe;
+    --gray-50:  #f8fafc;
+    --gray-100: #f1f5f9;
+    --gray-400: #94a3b8;
+    --gray-600: #475569;
+    --gray-900: #0f172a;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+  }
+
+  /* ── NAVBAR ────────────────────────────────────────────── */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(30, 58, 138, 0.97);
+    backdrop-filter: blur(12px);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  }
+  .navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    text-decoration: none;
+  }
+  .navbar-icon {
+    width: 32px;
+    height: 32px;
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .navbar-brand span {
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.3px;
+  }
+  .navbar-brand small {
+    font-size: 10px;
+    font-weight: 400;
+    color: #93c5fd;
+    display: block;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .nav-link {
+    color: #bfdbfe;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+  .btn-access {
+    background: white;
+    color: var(--blue-900);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .btn-access:hover {
+    background: #eff6ff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+
+  /* ── HERO ──────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%);
+    padding: 80px 24px 100px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.15);
+    color: #bfdbfe;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 6px 16px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 900;
+    color: white;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+  }
+  .hero h1 span { color: #93c5fd; }
+  .hero p {
+    font-size: clamp(15px, 2vw, 18px);
+    color: #bfdbfe;
+    max-width: 560px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+  }
+  .hero-cta {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    color: var(--blue-900);
+    font-weight: 800;
+    font-size: 15px;
+    padding: 14px 32px;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    background: #eff6ff;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    font-weight: 600;
+    font-size: 15px;
+    padding: 14px 28px;
+    border-radius: 14px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.2);
+    transform: translateY(-2px);
+  }
+  .hero-stats {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    margin-top: 60px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    text-align: center;
+    color: white;
+  }
+  .stat-num {
+    font-size: 28px;
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: #93c5fd;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* ── ROLES ─────────────────────────────────────────────── */
+  .section {
+    padding: 64px 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--blue-600);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .section-title {
+    font-size: clamp(24px, 3vw, 36px);
+    font-weight: 800;
+    color: var(--gray-900);
+    text-align: center;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .section-sub {
+    font-size: 15px;
+    color: var(--gray-600);
+    text-align: center;
+    margin-bottom: 48px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+  }
+
+  .roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+  }
+  .role-card {
+    background: white;
+    border-radius: 20px;
+    padding: 28px 24px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.2s;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .role-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.1);
+  }
+  .role-card.inspector  { border-color: #86efac; }
+  .role-card.supervisor { border-color: #93c5fd; }
+  .role-card.admin      { border-color: #c4b5fd; }
+  .role-card .role-icon { font-size: 36px; margin-bottom: 12px; }
+  .role-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .role-card p  { font-size: 13px; color: var(--gray-600); line-height: 1.6; margin-bottom: 16px; }
+  .role-features { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .role-features li {
+    font-size: 12.5px;
+    color: var(--gray-600);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .role-features li::before { content: '✓'; color: #22c55e; font-weight: 700; flex-shrink: 0; }
+
+  /* ── FLOW ──────────────────────────────────────────────── */
+  .flow-section { background: white; padding: 64px 24px; }
+  .flow-inner { max-width: 1100px; margin: 0 auto; }
+  .flow-row {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .flow-step {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px 12px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #cbd5e1;
+    z-index: 1;
+  }
+  .flow-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--blue-600);
+    color: white;
+    font-weight: 800;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+  }
+  .flow-icon { font-size: 28px; margin-bottom: 8px; }
+  .flow-step h4 { font-size: 13px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .flow-step p  { font-size: 11px; color: var(--gray-600); line-height: 1.4; }
+  .flow-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue-800);
+    background: var(--blue-100);
+    padding: 6px 14px;
+    border-radius: 50px;
+    margin-bottom: 24px;
+  }
+
+  /* ── ESTADOS ───────────────────────────────────────────── */
+  .estados-bar {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 40px;
+  }
+  .estado {
+    padding: 7px 18px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .e-arrow { color: #94a3b8; font-size: 16px; }
+  .e1 { background: #dbeafe; color: #1d4ed8; border: 1.5px solid #93c5fd; }
+  .e2 { background: #fef9c3; color: #854d0e; border: 1.5px solid #fde047; }
+  .e3 { background: #ffedd5; color: #9a3412; border: 1.5px solid #fb923c; }
+  .e4 { background: #dcfce7; color: #14532d; border: 1.5px solid #4ade80; }
+  .e5 { background: #fee2e2; color: #7f1d1d; border: 1.5px solid #f87171; }
+
+  /* ── MÓDULOS ───────────────────────────────────────────── */
+  .modules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .module-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1.5px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transition: all 0.2s;
+  }
+  .module-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.1);
+    transform: translateY(-2px);
+  }
+  .module-card .icon { font-size: 26px; margin-bottom: 10px; }
+  .module-card h4    { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .module-card p     { font-size: 12px; color: var(--gray-600); line-height: 1.5; }
+
+  /* ── TECH ──────────────────────────────────────────────── */
+  .tech-section {
+    background: var(--gray-900);
+    padding: 48px 24px;
+    text-align: center;
+  }
+  .tech-section h3 { color: white; font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+  .tech-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .tech-badge {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #cbd5e1;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  /* ── CTA FINAL ─────────────────────────────────────────── */
+  .cta-section {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    padding: 80px 24px;
+    text-align: center;
+  }
+  .cta-section h2 {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 900;
+    color: white;
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+  .cta-section p {
+    font-size: 16px;
+    color: #bfdbfe;
+    margin-bottom: 32px;
+  }
+  .btn-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: white;
+    color: var(--blue-900);
+    font-weight: 800;
+    font-size: 16px;
+    padding: 16px 40px;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+  .btn-cta:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.25);
+    background: #eff6ff;
+  }
+  .btn-cta .arrow { font-size: 20px; transition: transform 0.2s; }
+  .btn-cta:hover .arrow { transform: translateX(4px); }
+
+  /* ── FOOTER ────────────────────────────────────────────── */
+  footer {
+    background: #020617;
+    padding: 24px;
+    text-align: center;
+    color: #475569;
+    font-size: 12px;
+  }
+
+  /* ── DIVIDER ───────────────────────────────────────────── */
+  .divider {
+    border: none;
+    border-top: 2px dashed #e2e8f0;
+    margin: 40px 0;
+  }
+
+  /* ── RESPONSIVE ────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .navbar { padding: 0 16px; }
+    .nav-link { display: none; }
+    .flow-row { gap: 0; }
+    .flow-step:not(:last-child)::after { display: none; }
+    .hero-stats { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="#" class="navbar-brand">
+    <div class="navbar-icon">🔍</div>
+    <div>
+      <span>SGConfi Inspector</span>
+      <small>Sistema de Gestión de Hallazgos</small>
+    </div>
+  </a>
+  <div class="navbar-links">
+    <a href="#flujo" class="nav-link">Cómo funciona</a>
+    <a href="#modulos" class="nav-link">Módulos</a>
+    <a href="/login" class="btn-access">Acceder al Sistema →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">⚡ Plataforma PWA · Funciona sin conexión</div>
+  <h1>Gestión de Hallazgos<br><span>Técnicos en Campo</span></h1>
+  <p>Registra, gestiona y cierra hallazgos desde el celular. Trazabilidad completa con jerarquía SAP, pautas de inspección y bitácora de turno.</p>
+  <div class="hero-cta">
+    <a href="/login" class="btn-primary">
+      🔐 Ingresar al Sistema
+    </a>
+    <a href="#flujo" class="btn-secondary">
+      📋 Ver cómo funciona
+    </a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Roles de usuario</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Niveles jerarquía SAP</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">100%</div>
+      <div class="stat-label">Trazabilidad de estados</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">PWA</div>
+      <div class="stat-label">Funciona offline</div>
+    </div>
+  </div>
+</section>
+
+<!-- ROLES -->
+<section class="section" id="roles">
+  <div class="section-label">Quiénes lo usan</div>
+  <h2 class="section-title">Tres roles, un mismo sistema</h2>
+  <p class="section-sub">Cada usuario accede a las funciones que necesita según su rol en la organización.</p>
+  <div class="roles-grid">
+    <div class="role-card inspector">
+      <div class="role-icon">👷</div>
+      <h3>Inspector</h3>
+      <p>Opera desde celular en campo. Registra hallazgos con fotos, ejecuta pautas de inspección y registra novedades de turno.</p>
+      <ul class="role-features">
+        <li>Registrar hallazgos con hasta 5 fotos</li>
+        <li>Ejecutar pautas de inspección con checklist</li>
+        <li>Bitácora de novedades del turno</li>
+        <li>Seguimiento de hallazgos activos</li>
+      </ul>
+    </div>
+    <div class="role-card supervisor">
+      <div class="role-icon">👔</div>
+      <h3>Supervisor</h3>
+      <p>Gestiona el flujo de hallazgos, programa rondas de inspección, supervisa la bitácora y genera reportes.</p>
+      <ul class="role-features">
+        <li>Dashboard con métricas en tiempo real</li>
+        <li>Gestionar y cerrar hallazgos</li>
+        <li>Programar rondas de inspección</li>
+        <li>Reportes PDF de ejecuciones</li>
+      </ul>
+    </div>
+    <div class="role-card admin">
+      <div class="role-icon">⚙️</div>
+      <h3>Administrador</h3>
+      <p>Configura toda la plataforma: usuarios, jerarquía SAP, disciplinas, plantillas de checklist y notificaciones.</p>
+      <ul class="role-features">
+        <li>Gestión completa de usuarios</li>
+        <li>Importar jerarquía SAP desde Excel</li>
+        <li>Crear plantillas de verificación</li>
+        <li>Auditoría de accesos y correos</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- FLUJO -->
+<section class="flow-section" id="flujo">
+  <div class="flow-inner">
+    <div class="section-label">Cómo funciona</div>
+    <h2 class="section-title">Flujo completo del sistema</h2>
+    <p class="section-sub">Desde que se detecta un problema hasta su cierre con evidencia fotográfica.</p>
+
+    <!-- Hallazgos -->
+    <div class="flow-label">📋 Flujo de Hallazgos Técnicos</div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-icon">📍</div>
+        <h4>Detectar en Campo</h4>
+        <p>Inspector identifica el problema en el equipo o componente</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-icon">📸</div>
+        <h4>Registrar + Fotos</h4>
+        <p>Selecciona ubicación SAP, categoría, criticidad y hasta 5 fotos</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-icon">🔔</div>
+        <h4>Aviso Automático</h4>
+        <p>Genera número AV-YYYY-NNNNNN y notifica al supervisor por email</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-icon">🔧</div>
+        <h4>Gestión</h4>
+        <p>Supervisor asigna número SAP y mueve el hallazgo entre estados</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-icon">✅</div>
+        <h4>Cierre + PDF</h4>
+        <p>Fotos de evidencia de cierre y reporte PDF con historial completo</p>
+      </div>
+    </div>
+
+    <!-- Estados -->
+    <div class="estados-bar">
+      <span style="font-size:12px;font-weight:700;color:#64748b;margin-right:4px;">Ciclo de vida:</span>
+      <span class="estado e1">ABIERTO</span>
+      <span class="e-arrow">→</span>
+      <span class="estado e2">EN GESTIÓN</span>
+      <span class="e-arrow">→</span>
+      <span class="estado e3">PEND. CIERRE</span>
+      <span class="e-arrow">→</span>
+      <span class="estado e4">CERRADO</span>
+      <span style="margin:0 8px;color:#e2e8f0;font-weight:300">|</span>
+      <span class="estado e5">RECHAZADO</span>
+      <span style="margin-left:auto;font-size:11px;color:#94a3b8">🔒 Estados auditados con usuario, fecha y motivo</span>
+    </div>
+
+    <!-- Pautas -->
+    <div class="flow-label">✅ Pautas de Inspección Periódica</div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-icon">📌</div>
+        <h4>Crear Plantilla</h4>
+        <p>Define equipos a inspeccionar con checklists por disciplina</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-icon">📅</div>
+        <h4>Programar Ronda</h4>
+        <p>Supervisor establece fecha de inicio y fin de la ejecución</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-icon">🚶</div>
+        <h4>Recorrido Campo</h4>
+        <p>Inspector completa checklist y agrega fotos por equipo</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-icon">📊</div>
+        <h4>Reporte Cobertura</h4>
+        <p>PDF con quién inspeccionó qué, cuándo y con qué resultado</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">5</div>
+        <div class="flow-icon">🔄</div>
+        <h4>Nueva Ronda</h4>
+        <p>Plantilla disponible para la siguiente ronda periódica</p>
+      </div>
+    </div>
+
+    <!-- Bitácora -->
+    <div class="flow-label">📔 Bitácora de Novedades de Turno</div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <div class="flow-icon">✏️</div>
+        <h4>Registrar Novedad</h4>
+        <p>Incidentes, anomalías, mantenimientos con fotos y adjuntos</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <div class="flow-icon">📅</div>
+        <h4>Vista Unificada</h4>
+        <p>Timeline cronológico con hallazgos, inspecciones y novedades</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <div class="flow-icon">✍️</div>
+        <h4>Confirmar Sin Nov.</h4>
+        <p>Supervisor certifica formalmente semanas sin novedades</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <div class="flow-icon">📄</div>
+        <h4>PDF Semanal</h4>
+        <p>Resumen ejecutivo automático de toda la semana</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MÓDULOS -->
+<section class="section" id="modulos">
+  <div class="section-label">Funcionalidades</div>
+  <h2 class="section-title">Todos los módulos integrados</h2>
+  <p class="section-sub">Una sola plataforma para toda la gestión de inspecciones técnicas.</p>
+  <div class="modules-grid">
+    <div class="module-card">
+      <div class="icon">📊</div>
+      <h4>Dashboard en Tiempo Real</h4>
+      <p>Métricas globales, ranking de inspectores, áreas críticas y contadores por estado con filtros.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">🗺️</div>
+      <h4>Jerarquía SAP</h4>
+      <p>4 niveles (Planta→Área→Activo→Componente) importable desde Excel. Badges de hallazgos activos.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">📷</div>
+      <h4>Gestión de Fotos</h4>
+      <p>Hasta 5 fotos al crear y al cerrar. Galería con lightbox, compresión automática en móvil.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">📧</div>
+      <h4>Notificaciones Email</h4>
+      <p>Alertas automáticas a listas de distribución por Zona Funcional al registrar hallazgos.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">☑️</div>
+      <h4>Checklists Configurables</h4>
+      <p>Plantillas reutilizables con campos numéricos, checkbox, selección, texto y fecha. Importación CSV.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">📈</div>
+      <h4>Seguimiento de Hallazgos</h4>
+      <p>Alertas de inactividad (7/15/30 días). Confirmaciones periódicas con foto obligatoria.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">📄</div>
+      <h4>Reportes PDF</h4>
+      <p>PDF de hallazgo individual, ejecución de pauta y resumen semanal de bitácora. Generación server-side.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">🔐</div>
+      <h4>Seguridad y Auditoría</h4>
+      <p>JWT + cookie HttpOnly, log completo de accesos, historial de correos, trazabilidad de estados.</p>
+    </div>
+    <div class="module-card">
+      <div class="icon">📱</div>
+      <h4>PWA Offline</h4>
+      <p>Funciona sin conexión en celular. Service Worker con caché inteligente. Instala como app nativa.</p>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section class="tech-section">
+  <h3>🛠 Stack Tecnológico</h3>
+  <div class="tech-row">
+    <div class="tech-badge">⚛️ React 18 + Vite</div>
+    <div class="tech-badge">🎨 TailwindCSS</div>
+    <div class="tech-badge">🔄 TanStack Query</div>
+    <div class="tech-badge">🟢 Node.js + Express</div>
+    <div class="tech-badge">🐘 PostgreSQL + Prisma</div>
+    <div class="tech-badge">🔒 JWT + Cookie HttpOnly</div>
+    <div class="tech-badge">📱 PWA (Workbox)</div>
+    <div class="tech-badge">☁️ VPS Ubuntu + Nginx + PM2</div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section">
+  <h2>¿Listo para empezar?</h2>
+  <p>Accede al sistema con tus credenciales. Disponible desde cualquier dispositivo.</p>
+  <a href="/login" class="btn-cta">
+    🔐 Ingresar al Sistema
+    <span class="arrow">→</span>
+  </a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  SGConfi Inspector · Sistema de Gestión de Hallazgos Técnicos · © 2026
+</footer>
+
+</body>
+</html>
