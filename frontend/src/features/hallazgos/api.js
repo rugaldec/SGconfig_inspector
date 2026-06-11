@@ -33,6 +33,9 @@ export const hallazgosApi = {
     window.location.href = `/api/hallazgos/export?${qs}`
   },
 
+  eliminar: (id) =>
+    apiClient.delete(`/hallazgos/${id}`).then(r => r.data),
+
   listarSeguimientos: (id) =>
     apiClient.get(`/hallazgos/${id}/seguimientos`).then(r => r.data.data),
 

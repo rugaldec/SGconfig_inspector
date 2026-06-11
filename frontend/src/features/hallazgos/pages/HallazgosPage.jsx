@@ -1,12 +1,14 @@
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useHallazgos } from '../hooks/useHallazgos'
+import { useHallazgos, useEliminarHallazgo } from '../hooks/useHallazgos'
 import { hallazgosApi } from '../api'
 import EstadoBadge from '../components/EstadoBadge'
 import CriticidadBadge from '../components/CriticidadBadge'
 import HallazgoCard from '../components/HallazgoCard'
 import Spinner from '../../../shared/components/ui/Spinner'
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios'
-import { Download, MessageSquare, GitBranch } from 'lucide-react'
+import { useAuth } from '../../auth/useAuth'
+import { Download, MessageSquare, GitBranch, Trash2 } from 'lucide-react'
 
 function UltimoComentarioTooltip({ hallazgo }) {
   const count = hallazgo._count?.comentarios ?? 0
@@ -37,6 +39,9 @@ const CRITICIDADES = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA']
 export default function HallazgosPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
+  const { user } = useAuth()
+  const [confirmando, setConfirmando] = useState(null) // hallazgo a eliminar
+  const eliminar = useEliminarHallazgo()
 
   const estado = params.get('estado') || ''
   const criticidad = params.get('criticidad') || ''
@@ -62,8 +67,54 @@ export default function HallazgosPage() {
 
   const items = data?.data ?? []
 
+  function handleEliminar(e, hallazgo) {
+    e.stopPropagation()
+    setConfirmando(hallazgo)
+  }
+
+  async function confirmarEliminar() {
+    await eliminar.mutateAsync(confirmando.id)
+    setConfirmando(null)
+  }
+
   return (
     <div>
+      {/* Modal confirmación eliminar */}
+      {confirmando && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Eliminar hallazgo</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">
+              ¿Eliminar el hallazgo <span className="font-mono font-semibold">{confirmando.numero_aviso}</span>?
+            </p>
+            <p className="text-xs text-gray-400 mb-6">
+              El registro quedará oculto pero no se borrará permanentemente.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmando(null)}
+                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50 transition-colors"
+                disabled={eliminar.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEliminar}
+                disabled={eliminar.isPending}
+                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-gray-800">Hallazgos</h1>
         <button
@@ -122,6 +173,7 @@ export default function HallazgosPage() {
                       {h}
                     </th>
                   ))}
+                  {user?.rol === 'ADMINISTRADOR' && <th className="px-4 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -154,6 +206,17 @@ export default function HallazgosPage() {
                     <td className="px-4 py-3 text-gray-400 text-xs">
                       {new Date(h.fecha_creacion).toLocaleDateString('es-CL')}
                     </td>
+                    {user?.rol === 'ADMINISTRADOR' && (
+                      <td className="px-2 py-3">
+                        <button
+                          onClick={(e) => handleEliminar(e, h)}
+                          title="Eliminar hallazgo"
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

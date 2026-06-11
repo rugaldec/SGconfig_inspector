@@ -102,6 +102,7 @@ model Usuario {
   items_ejecutados      ItemEjecucion[]  @relation("ItemsEjecutados")
   entradas_bitacora     BitacoraEntrada[]
   seguimientos          SeguimientoHallazgo[]
+  hallazgos_eliminados  Hallazgo[]           @relation("HallazgosEliminados")
 
   @@map("usuarios")
 }
@@ -169,6 +170,9 @@ model Hallazgo {
   inspector            Usuario           @relation("InspectorHallazgos", fields: [inspector_id], references: [id])
   fecha_creacion       DateTime          @default(now())
   fecha_actualizacion  DateTime          @updatedAt
+  deleted_at           DateTime?
+  deleted_by_id        String?
+  deleted_by           Usuario?          @relation("HallazgosEliminados", fields: [deleted_by_id], references: [id])
 
   comentarios    Comentario[]
   cambios_estado CambioEstado[]

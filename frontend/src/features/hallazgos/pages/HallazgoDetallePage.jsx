@@ -16,7 +16,8 @@ import Spinner from '../../../shared/components/ui/Spinner'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
 import { useAuth } from '../../auth/useAuth'
-import { ArrowLeft, FileDown, Camera, X } from 'lucide-react'
+import { ArrowLeft, FileDown, Camera, X, Trash2 } from 'lucide-react'
+import { useEliminarHallazgo } from '../hooks/useHallazgos'
 
 function SeccionEstado({ hallazgo, mutCambiarEstado }) {
   const siguientes = siguientesEstados(hallazgo.estado)
@@ -451,6 +452,8 @@ export default function HallazgoDetallePage() {
   const { data: h, isLoading } = query
   const [exporting, setExporting] = useState(false)
   const [modalSeguimiento, setModalSeguimiento] = useState(false)
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
+  const eliminar = useEliminarHallazgo()
 
   async function handleExportarPdf() {
     setExporting(true)
@@ -461,8 +464,48 @@ export default function HallazgoDetallePage() {
   if (isLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>
   if (!h) return <p className="text-center py-16 text-gray-400">Hallazgo no encontrado</p>
 
+  async function handleEliminar() {
+    await eliminar.mutateAsync(h.id)
+    navigate(-1)
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      {confirmandoEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 size={18} className="text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Eliminar hallazgo</h2>
+            </div>
+            <p className="text-sm text-gray-600 mb-1">
+              ¿Eliminar el hallazgo <span className="font-mono font-semibold">{h.numero_aviso}</span>?
+            </p>
+            <p className="text-xs text-gray-400 mb-6">
+              El registro quedará oculto pero no se borrará permanentemente.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmandoEliminar(false)}
+                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-50 transition-colors"
+                disabled={eliminar.isPending}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEliminar}
+                disabled={eliminar.isPending}
+                className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              >
+                {eliminar.isPending ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
@@ -470,9 +513,20 @@ export default function HallazgoDetallePage() {
         >
           <ArrowLeft size={16} /> Volver
         </button>
-        <Button variant="secondary" size="sm" loading={exporting} onClick={handleExportarPdf}>
-          <FileDown size={15} /> Exportar PDF
-        </Button>
+        <div className="flex items-center gap-2">
+          {user?.rol === 'ADMINISTRADOR' && (
+            <button
+              onClick={() => setConfirmandoEliminar(true)}
+              title="Eliminar hallazgo"
+              className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <Trash2 size={15} /> Eliminar
+            </button>
+          )}
+          <Button variant="secondary" size="sm" loading={exporting} onClick={handleExportarPdf}>
+            <FileDown size={15} /> Exportar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Encabezado */}

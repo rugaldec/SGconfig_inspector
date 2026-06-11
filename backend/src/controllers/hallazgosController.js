@@ -96,7 +96,7 @@ async function crear(req, res) {
 async function listar(req, res) {
   const { estado, criticidad, categoria, ubicacion_id, inspector_id, desde, hasta, page = 1, limit = 20, sort = 'fecha_creacion', order = 'desc' } = req.query
 
-  const where = {}
+  const where = { deleted_at: null }
   if (estado) where.estado = estado
   if (criticidad) where.criticidad = criticidad
   if (categoria) where.categoria = categoria
@@ -134,7 +134,7 @@ async function listar(req, res) {
 
 async function mios(req, res) {
   const hallazgos = await prisma.hallazgo.findMany({
-    where: { inspector_id: req.user.id },
+    where: { inspector_id: req.user.id, deleted_at: null },
     include: { ubicacion_tecnica: { select: { codigo: true, descripcion: true } } },
     orderBy: { fecha_creacion: 'desc' },
   })
@@ -143,7 +143,7 @@ async function mios(req, res) {
 
 async function detalle(req, res) {
   const h = await prisma.hallazgo.findUnique({ where: { id: req.params.id }, include: INCLUDE_DETALLE })
-  if (!h) return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
+  if (!h || h.deleted_at) return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
   if (req.user.rol === 'INSPECTOR' && h.inspector_id !== req.user.id) {
     return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
   }
@@ -235,7 +235,7 @@ async function agregarComentario(req, res) {
 
 async function exportarCsv(req, res) {
   const { estado, criticidad, ubicacion_id, inspector_id, desde, hasta } = req.query
-  const where = {}
+  const where = { deleted_at: null }
   if (estado) where.estado = estado
   if (criticidad) where.criticidad = criticidad
   if (ubicacion_id) where.ubicacion_tecnica_id = ubicacion_id
@@ -271,12 +271,23 @@ async function exportarCsv(req, res) {
   res.send('\uFEFF' + csv) // BOM para Excel
 }
 
+async function eliminar(req, res) {
+  const h = await prisma.hallazgo.findUnique({ where: { id: req.params.id } })
+  if (!h || h.deleted_at) return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
+
+  await prisma.hallazgo.update({
+    where: { id: req.params.id },
+    data: { deleted_at: new Date(), deleted_by_id: req.user.id },
+  })
+  return ok(res, null, 'Hallazgo eliminado')
+}
+
 async function exportarPdf(req, res) {
   const h = await prisma.hallazgo.findUnique({
     where: { id: req.params.id },
     include: INCLUDE_DETALLE,
   })
-  if (!h) return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
+  if (!h || h.deleted_at) return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
   if (req.user.rol === 'INSPECTOR' && h.inspector_id !== req.user.id) {
     return fail(res, 'NOT_FOUND', 'Hallazgo no encontrado', 404)
   }
@@ -286,4 +297,4 @@ async function exportarPdf(req, res) {
   await generarPdfHallazgo(h, res)
 }
 
-module.exports = { crear, listar, mios, detalle, cambiarEstado, asignarSap, agregarComentario, exportarCsv, exportarPdf }
+module.exports = { crear, listar, mios, detalle, cambiarEstado, asignarSap, agregarComentario, exportarCsv, exportarPdf, eliminar }
