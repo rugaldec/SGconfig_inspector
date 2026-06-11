@@ -36,6 +36,9 @@ export const hallazgosApi = {
   eliminar: (id) =>
     apiClient.delete(`/hallazgos/${id}`).then(r => r.data),
 
+  restaurar: (id) =>
+    apiClient.patch(`/hallazgos/${id}/restaurar`).then(r => r.data),
+
   listarSeguimientos: (id) =>
     apiClient.get(`/hallazgos/${id}/seguimientos`).then(r => r.data.data),
 

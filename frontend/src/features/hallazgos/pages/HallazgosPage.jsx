@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useHallazgos, useEliminarHallazgo } from '../hooks/useHallazgos'
+import { useHallazgos, useEliminarHallazgo, useRestaurarHallazgo } from '../hooks/useHallazgos'
 import { hallazgosApi } from '../api'
 import EstadoBadge from '../components/EstadoBadge'
 import CriticidadBadge from '../components/CriticidadBadge'
@@ -8,7 +8,7 @@ import HallazgoCard from '../components/HallazgoCard'
 import Spinner from '../../../shared/components/ui/Spinner'
 import { useUsuarios } from '../../usuarios/hooks/useUsuarios'
 import { useAuth } from '../../auth/useAuth'
-import { Download, MessageSquare, GitBranch, Trash2 } from 'lucide-react'
+import { Download, MessageSquare, GitBranch, Trash2, RotateCcw } from 'lucide-react'
 
 function UltimoComentarioTooltip({ hallazgo }) {
   const count = hallazgo._count?.comentarios ?? 0
@@ -41,7 +41,9 @@ export default function HallazgosPage() {
   const [params, setParams] = useSearchParams()
   const { user } = useAuth()
   const [confirmando, setConfirmando] = useState(null) // hallazgo a eliminar
+  const [verEliminados, setVerEliminados] = useState(false)
   const eliminar = useEliminarHallazgo()
+  const restaurar = useRestaurarHallazgo()
 
   const estado = params.get('estado') || ''
   const criticidad = params.get('criticidad') || ''
@@ -61,6 +63,7 @@ export default function HallazgosPage() {
     ...(estado && { estado }),
     ...(criticidad && { criticidad }),
     ...(inspector_id && { inspector_id }),
+    ...(verEliminados && { incluir_eliminados: 'true' }),
     page,
     limit: 20,
   })
@@ -116,48 +119,73 @@ export default function HallazgosPage() {
       )}
 
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold text-gray-800">Hallazgos</h1>
-        <button
-          onClick={() => hallazgosApi.exportarCsv({ estado, criticidad })}
-          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-blue-700 border rounded-lg px-3 py-1.5 transition-colors"
-        >
-          <Download size={15} /> Exportar CSV
-        </button>
+        <h1 className="text-xl font-bold text-gray-800">
+          Hallazgos
+          {verEliminados && (
+            <span className="ml-2 text-sm font-normal text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
+              Eliminados
+            </span>
+          )}
+        </h1>
+        <div className="flex items-center gap-2">
+          {user?.rol === 'ADMINISTRADOR' && (
+            <button
+              onClick={() => { setVerEliminados(v => !v); setFiltro('page', '1') }}
+              className={`flex items-center gap-1.5 text-sm border rounded-lg px-3 py-1.5 transition-colors ${
+                verEliminados
+                  ? 'bg-red-50 border-red-300 text-red-600'
+                  : 'text-gray-600 hover:text-red-600 hover:border-red-300'
+              }`}
+            >
+              <Trash2 size={15} /> {verEliminados ? 'Ver activos' : 'Ver eliminados'}
+            </button>
+          )}
+          {!verEliminados && (
+            <button
+              onClick={() => hallazgosApi.exportarCsv({ estado, criticidad })}
+              className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-blue-700 border rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <Download size={15} /> Exportar CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <select
-          value={estado}
-          onChange={(e) => setFiltro('estado', e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">Todos los estados</option>
-          {ESTADOS.map((e) => (
-            <option key={e} value={e}>{e.replace('_', ' ')}</option>
-          ))}
-        </select>
-        <select
-          value={criticidad}
-          onChange={(e) => setFiltro('criticidad', e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">Toda criticidad</option>
-          {CRITICIDADES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-        <select
-          value={inspector_id}
-          onChange={(e) => setFiltro('inspector_id', e.target.value)}
-          className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">Todo inspector</option>
-          {(usuarios ?? []).map((u) => (
-            <option key={u.id} value={u.id}>{u.nombre}</option>
-          ))}
-        </select>
-      </div>
+      {!verEliminados && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <select
+            value={estado}
+            onChange={(e) => setFiltro('estado', e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS.map((e) => (
+              <option key={e} value={e}>{e.replace('_', ' ')}</option>
+            ))}
+          </select>
+          <select
+            value={criticidad}
+            onChange={(e) => setFiltro('criticidad', e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Toda criticidad</option>
+            {CRITICIDADES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <select
+            value={inspector_id}
+            onChange={(e) => setFiltro('inspector_id', e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="">Todo inspector</option>
+            {(usuarios ?? []).map((u) => (
+              <option key={u.id} value={u.id}>{u.nombre}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
@@ -173,7 +201,11 @@ export default function HallazgosPage() {
                       {h}
                     </th>
                   ))}
-                  {user?.rol === 'ADMINISTRADOR' && <th className="px-4 py-3" />}
+                  {user?.rol === 'ADMINISTRADOR' && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      {verEliminados ? 'Restaurar' : ''}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -208,13 +240,24 @@ export default function HallazgosPage() {
                     </td>
                     {user?.rol === 'ADMINISTRADOR' && (
                       <td className="px-2 py-3">
-                        <button
-                          onClick={(e) => handleEliminar(e, h)}
-                          title="Eliminar hallazgo"
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        {verEliminados ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); restaurar.mutate(h.id) }}
+                            title="Restaurar hallazgo"
+                            disabled={restaurar.isPending}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-emerald-600 hover:bg-emerald-50 border border-emerald-200 transition-colors disabled:opacity-50"
+                          >
+                            <RotateCcw size={13} /> Restaurar
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => handleEliminar(e, h)}
+                            title="Eliminar hallazgo"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
                       </td>
                     )}
                   </tr>

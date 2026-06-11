@@ -94,9 +94,9 @@ async function crear(req, res) {
 }
 
 async function listar(req, res) {
-  const { estado, criticidad, categoria, ubicacion_id, inspector_id, desde, hasta, page = 1, limit = 20, sort = 'fecha_creacion', order = 'desc' } = req.query
+  const { estado, criticidad, categoria, ubicacion_id, inspector_id, desde, hasta, page = 1, limit = 20, sort = 'fecha_creacion', order = 'desc', incluir_eliminados } = req.query
 
-  const where = { deleted_at: null }
+  const where = incluir_eliminados === 'true' ? { deleted_at: { not: null } } : { deleted_at: null }
   if (estado) where.estado = estado
   if (criticidad) where.criticidad = criticidad
   if (categoria) where.categoria = categoria
@@ -282,6 +282,17 @@ async function eliminar(req, res) {
   return ok(res, null, 'Hallazgo eliminado')
 }
 
+async function restaurar(req, res) {
+  const h = await prisma.hallazgo.findUnique({ where: { id: req.params.id } })
+  if (!h || !h.deleted_at) return fail(res, 'NOT_FOUND', 'Hallazgo eliminado no encontrado', 404)
+
+  await prisma.hallazgo.update({
+    where: { id: req.params.id },
+    data: { deleted_at: null, deleted_by_id: null },
+  })
+  return ok(res, null, 'Hallazgo restaurado')
+}
+
 async function exportarPdf(req, res) {
   const h = await prisma.hallazgo.findUnique({
     where: { id: req.params.id },
@@ -297,4 +308,4 @@ async function exportarPdf(req, res) {
   await generarPdfHallazgo(h, res)
 }
 
-module.exports = { crear, listar, mios, detalle, cambiarEstado, asignarSap, agregarComentario, exportarCsv, exportarPdf, eliminar }
+module.exports = { crear, listar, mios, detalle, cambiarEstado, asignarSap, agregarComentario, exportarCsv, exportarPdf, eliminar, restaurar }

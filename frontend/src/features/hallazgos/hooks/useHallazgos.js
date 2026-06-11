@@ -34,3 +34,13 @@ export function useEliminarHallazgo() {
     },
   })
 }
+
+export function useRestaurarHallazgo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id) => hallazgosApi.restaurar(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['hallazgos'] })
+    },
+  })
+}
