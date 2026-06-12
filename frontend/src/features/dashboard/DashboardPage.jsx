@@ -174,6 +174,25 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Gráfico: Hallazgos por día (últimos 30 días) */}
+      <div className="bg-white rounded-xl border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+            <Activity size={16} className="text-blue-400" /> Hallazgos por Día
+            <span className="text-xs text-gray-400 font-normal">(últimos 30 días)</span>
+          </h2>
+          {totalUltimos30 > 0 && (
+            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+              {totalUltimos30} en el período
+            </span>
+          )}
+        </div>
+        {hallazgosPorDia.length > 0
+          ? <GraficoBarrasDiarias datos={hallazgosPorDia} />
+          : <p className="text-sm text-gray-400 text-center py-6">Sin datos para el período</p>
+        }
+      </div>
+
       {/* Contadores por estado */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {Object.entries(ESTADO_CONFIG).map(([key, cfg]) => (
@@ -322,25 +341,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-      </div>
-
-      {/* Gráfico: Hallazgos por día (últimos 30 días) */}
-      <div className="bg-white rounded-xl border p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-gray-700 flex items-center gap-2">
-            <Activity size={16} className="text-blue-400" /> Hallazgos por Día
-            <span className="text-xs text-gray-400 font-normal">(últimos 30 días)</span>
-          </h2>
-          {totalUltimos30 > 0 && (
-            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-              {totalUltimos30} en el período
-            </span>
-          )}
-        </div>
-        {hallazgosPorDia.length > 0
-          ? <GraficoBarrasDiarias datos={hallazgosPorDia} />
-          : <p className="text-sm text-gray-400 text-center py-6">Sin datos para el período</p>
-        }
       </div>
 
       {/* Fila 3: Áreas con Inspecciones */}
