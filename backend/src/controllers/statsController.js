@@ -21,7 +21,12 @@ async function stats(req, res) {
     ubicacionIds = await getDescendientes(area_id || planta_id)
   }
 
-  const where = ubicacionIds ? { ubicacion_tecnica_id: { in: ubicacionIds } } : {}
+  const where = ubicacionIds ? { ubicacion_tecnica_id: { in: ubicacionIds }, deleted_at: null } : { deleted_at: null }
+
+  // Últimos 30 días para el gráfico de actividad diaria
+  const hace30 = new Date()
+  hace30.setDate(hace30.getDate() - 29)
+  hace30.setHours(0, 0, 0, 0)
 
   const MIGRACION_PAUTAS = !!prisma.ejecucionPauta
 
@@ -31,6 +36,7 @@ async function stats(req, res) {
     porCategoria,
     rankingInspectores,
     totalHallazgos,
+    hallazgosRecientes,
     hallazgosConUbicacion,
     ejecucionesParaAreas,
   ] = await Promise.all([
@@ -46,6 +52,11 @@ async function stats(req, res) {
       take: 5,
     }),
     prisma.hallazgo.count({ where }),
+    // Hallazgos últimos 30 días para gráfico de actividad
+    prisma.hallazgo.findMany({
+      where: { ...where, fecha_creacion: { gte: hace30 } },
+      select: { fecha_creacion: true },
+    }),
     // Hallazgos con jerarquía completa para ranking de áreas
     prisma.hallazgo.findMany({
       where,
@@ -170,6 +181,21 @@ async function stats(req, res) {
     .sort((a, b) => (b.activas + b.completadas) - (a.activas + a.completadas))
     .slice(0, 6)
 
+  // Agrupar hallazgos por día (últimos 30 días) en JavaScript
+  const conteoPorDia = {}
+  for (const h of hallazgosRecientes) {
+    const dia = h.fecha_creacion.toISOString().slice(0, 10)
+    conteoPorDia[dia] = (conteoPorDia[dia] ?? 0) + 1
+  }
+  // Generar array con los 30 días, rellenando días sin hallazgos con 0
+  const hallazgosPorDia = []
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const dia = d.toISOString().slice(0, 10)
+    hallazgosPorDia.push({ dia, total: conteoPorDia[dia] ?? 0 })
+  }
+
   return ok(res, {
     total: totalHallazgos,
     porEstado: Object.fromEntries(porEstado.map(r => [r.estado, r._count.id])),
@@ -178,6 +204,7 @@ async function stats(req, res) {
     rankingInspectores: rankingInspectoresEnriquecido,
     rankingAreas,
     areasConInspecciones,
+    hallazgosPorDia,
   })
 }
 

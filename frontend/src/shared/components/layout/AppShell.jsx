@@ -19,16 +19,10 @@ const NAV_INSPECTOR_GROUPS = [
     ],
   },
   {
-    label: 'Bitácora',
+    label: 'Rutas',
     items: [
-      { to: '/inspector/bitacora', icon: NotebookPen, label: 'Bitácora' },
-    ],
-  },
-  {
-    label: 'Pautas',
-    items: [
-      { to: '/inspector/pautas',            icon: ClipboardCheck, label: 'Pautas en Ruta' },
-      { to: '/inspector/historial-pautas',  icon: BookOpen,       label: 'Historial de Pautas'  },
+      { to: '/inspector/pautas',            icon: ClipboardCheck, label: 'Rutas en Curso'   },
+      { to: '/inspector/historial-pautas',  icon: BookOpen,       label: 'Historial de Rutas' },
     ],
   },
   {
@@ -50,17 +44,11 @@ const NAV_SUP_GROUPS = [
     ],
   },
   {
-    label: 'Bitácora',
+    label: 'Rutas',
     items: [
-      { to: '/supervisor/bitacora', icon: NotebookPen, label: 'Bitácora' },
-    ],
-  },
-  {
-    label: 'Pautas',
-    items: [
-      { to: '/supervisor/mi-disciplina',   icon: LayoutDashboard, label: 'Mi Disciplina'    },
-      { to: '/supervisor/ruta-pautas',     icon: ClipboardCheck,  label: 'Pautas en Ruta'  },
-      { to: '/supervisor/historial-pautas',icon: BookOpen,        label: 'Historial de Pautas' },
+      { to: '/supervisor/mi-disciplina',    icon: LayoutDashboard, label: 'Mi Disciplina'     },
+      { to: '/supervisor/ruta-pautas',      icon: ClipboardCheck,  label: 'Rutas en Curso'    },
+      { to: '/supervisor/historial-pautas', icon: BookOpen,        label: 'Historial de Rutas' },
     ],
   },
 ]
@@ -75,29 +63,23 @@ const NAV_ADMIN_GROUPS = [
     ],
   },
   {
-    label: 'Bitácora',
+    label: 'Rutas',
     items: [
-      { to: '/admin/bitacora', icon: NotebookPen, label: 'Bitácora' },
-    ],
-  },
-  {
-    label: 'Pautas',
-    items: [
-      { to: '/admin/ruta-pautas',     icon: ClipboardCheck, label: 'Pautas en Ruta' },
-      { to: '/admin/historial-pautas',icon: BookOpen,       label: 'Historial de Pautas'  },
-      { to: '/admin/pautas',          icon: ClipboardCheck, label: 'Pautas'         },
+      { to: '/admin/ruta-pautas',      icon: ClipboardCheck, label: 'Rutas en Curso'    },
+      { to: '/admin/historial-pautas', icon: BookOpen,       label: 'Historial de Rutas' },
+      { to: '/admin/pautas',           icon: ClipboardCheck, label: 'Rutas'              },
     ],
   },
   {
     label: 'Administración',
     items: [
-      { to: '/admin/usuarios',      icon: Users,         label: 'Usuarios'          },
-      { to: '/admin/disciplinas',   icon: Wrench,        label: 'Disciplinas'       },
-      { to: '/admin/plantillas',    icon: ClipboardCheck, label: 'Plantillas'       },
-      { to: '/admin/ubicaciones',   icon: MapPin,        label: 'Ubicaciones'       },
-      { to: '/admin/listas-correo', icon: Mail,          label: 'Listas Correo'     },
-      { to: '/admin/logs-correo',   icon: History,       label: 'Historial Correos' },
-      { to: '/admin/logs-acceso',   icon: Shield,        label: 'Log de Accesos'    },
+      { to: '/admin/usuarios',      icon: Users,          label: 'Usuarios'          },
+      { to: '/admin/disciplinas',   icon: Wrench,         label: 'Disciplinas'       },
+      { to: '/admin/plantillas',    icon: ClipboardCheck, label: 'Check Lists'       },
+      { to: '/admin/ubicaciones',   icon: MapPin,         label: 'Ubicaciones'       },
+      { to: '/admin/listas-correo', icon: Mail,           label: 'Listas Correo'     },
+      { to: '/admin/logs-correo',   icon: History,        label: 'Historial Correos' },
+      { to: '/admin/logs-acceso',   icon: Shield,         label: 'Log de Accesos'    },
     ],
   },
 ]

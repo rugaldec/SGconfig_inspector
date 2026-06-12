@@ -5,7 +5,7 @@ import { useArbolUbicaciones } from '../ubicaciones/hooks/useUbicaciones'
 import { ESTADO_CONFIG, CRITICIDAD_CONFIG } from '../hallazgos/estadoMachine'
 import ContadorEstado from './components/ContadorEstado'
 import Spinner from '../../shared/components/ui/Spinner'
-import { Trophy, MapPin, TrendingUp, ClipboardCheck } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, ClipboardCheck, Activity } from 'lucide-react'
 
 const ESTADO_COLORES = {
   ABIERTO:          'bg-blue-50 border-blue-200 text-blue-800',
@@ -22,6 +22,83 @@ const CATEGORIA_COLORS = {
 }
 
 const MEDALLA = ['🥇', '🥈', '🥉']
+
+function GraficoBarrasDiarias({ datos = [] }) {
+  const W = 600
+  const H = 120
+  const PAD_L = 28
+  const PAD_R = 8
+  const PAD_T = 10
+  const PAD_B = 28
+  const maxVal = Math.max(...datos.map(d => d.total), 1)
+  const barW = (W - PAD_L - PAD_R) / datos.length
+  const alturaMax = H - PAD_T - PAD_B
+
+  // Mostrar solo cada 5 días en el eje X para no saturar
+  const labelCada = 5
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 140 }}>
+      {/* Líneas guía horizontales */}
+      {[0.25, 0.5, 0.75, 1].map(pct => {
+        const y = PAD_T + alturaMax * (1 - pct)
+        return (
+          <g key={pct}>
+            <line x1={PAD_L} y1={y} x2={W - PAD_R} y2={y} stroke="#f0f0f0" strokeWidth="1" />
+            <text x={PAD_L - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#aaa">
+              {Math.round(maxVal * pct)}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Barras */}
+      {datos.map((d, i) => {
+        const x = PAD_L + i * barW
+        const h = d.total > 0 ? Math.max((d.total / maxVal) * alturaMax, 3) : 0
+        const y = PAD_T + alturaMax - h
+        const esMesInicio = d.dia.endsWith('-01')
+        const isHoy = i === datos.length - 1
+
+        return (
+          <g key={d.dia}>
+            <rect
+              x={x + barW * 0.15}
+              y={y}
+              width={barW * 0.7}
+              height={h}
+              rx="2"
+              fill={isHoy ? '#3b82f6' : '#93c5fd'}
+              opacity={d.total === 0 ? 0.3 : 1}
+            />
+            {/* Valor encima de la barra si > 0 */}
+            {d.total > 0 && (
+              <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="8" fill="#6b7280">
+                {d.total}
+              </text>
+            )}
+            {/* Etiqueta del eje X cada 5 días o primer día del mes */}
+            {(i % labelCada === 0 || esMesInicio || isHoy) && (
+              <text
+                x={x + barW / 2}
+                y={H - 4}
+                textAnchor="middle"
+                fontSize="8"
+                fill={isHoy ? '#3b82f6' : '#9ca3af'}
+                fontWeight={isHoy ? 'bold' : 'normal'}
+              >
+                {isHoy ? 'hoy' : d.dia.slice(5)} {/* MM-DD */}
+              </text>
+            )}
+          </g>
+        )
+      })}
+
+      {/* Eje base */}
+      <line x1={PAD_L} y1={PAD_T + alturaMax} x2={W - PAD_R} y2={PAD_T + alturaMax} stroke="#e5e7eb" strokeWidth="1" />
+    </svg>
+  )
+}
 
 function BarraHorizontal({ label, count, total, color = 'bg-blue-400', sublabel }) {
   const pct = total > 0 ? (count / total) * 100 : 0
@@ -75,6 +152,8 @@ export default function DashboardPage() {
   const rankingInspectores = stats?.rankingInspectores ?? []
   const rankingAreas = stats?.rankingAreas ?? []
   const areasConInspecciones = stats?.areasConInspecciones ?? []
+  const hallazgosPorDia = stats?.hallazgosPorDia ?? []
+  const totalUltimos30 = hallazgosPorDia.reduce((s, d) => s + d.total, 0)
 
   return (
     <div className="space-y-6">
@@ -243,6 +322,25 @@ export default function DashboardPage() {
           )}
         </div>
 
+      </div>
+
+      {/* Gráfico: Hallazgos por día (últimos 30 días) */}
+      <div className="bg-white rounded-xl border p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-gray-700 flex items-center gap-2">
+            <Activity size={16} className="text-blue-400" /> Hallazgos por Día
+            <span className="text-xs text-gray-400 font-normal">(últimos 30 días)</span>
+          </h2>
+          {totalUltimos30 > 0 && (
+            <span className="text-sm font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+              {totalUltimos30} en el período
+            </span>
+          )}
+        </div>
+        {hallazgosPorDia.length > 0
+          ? <GraficoBarrasDiarias datos={hallazgosPorDia} />
+          : <p className="text-sm text-gray-400 text-center py-6">Sin datos para el período</p>
+        }
       </div>
 
       {/* Fila 3: Áreas con Inspecciones */}
