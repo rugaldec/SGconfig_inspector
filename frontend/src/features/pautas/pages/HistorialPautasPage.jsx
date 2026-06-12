@@ -218,7 +218,7 @@ export default function HistorialPautasPage() {
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-5">
         <BookOpen size={20} className="text-blue-600" />
-        <h1 className="text-xl font-bold text-gray-800">Historial de Pautas</h1>
+        <h1 className="text-xl font-bold text-gray-800">Historial de Rutas</h1>
       </div>
 
       {/* Filtros */}
@@ -228,7 +228,7 @@ export default function HistorialPautasPage() {
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar por pauta o disciplina..."
+              placeholder="Buscar por ruta o disciplina..."
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
@@ -255,7 +255,7 @@ export default function HistorialPautasPage() {
             <BookOpen size={32} className="text-gray-300" />
           </div>
           <p className="text-sm font-medium">
-            {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay pautas finalizadas aún'}
+            {busqueda ? 'Sin resultados para esa búsqueda' : 'No hay rutas finalizadas aún'}
           </p>
           <p className="text-xs text-gray-300">Las rondas completadas o vencidas aparecerán aquí</p>
         </div>

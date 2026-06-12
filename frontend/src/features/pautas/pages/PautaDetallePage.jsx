@@ -372,7 +372,7 @@ export default function PautaDetallePage() {
   }
 
   if (isLoading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-  if (!pauta) return <p className="text-center text-gray-400 py-16">Pauta no encontrada</p>
+  if (!pauta) return <p className="text-center text-gray-400 py-16">Ruta no encontrada</p>
 
   return (
     <div className="max-w-3xl mx-auto">

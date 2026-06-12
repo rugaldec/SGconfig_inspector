@@ -407,7 +407,7 @@ export default function MisPautasPage() {
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <Navigation size={20} className="text-blue-600" />
-          <h1 className="text-xl font-bold text-gray-800">Pautas en Ruta</h1>
+          <h1 className="text-xl font-bold text-gray-800">Rutas en Curso</h1>
         </div>
         <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
           {VISTAS.map(v => (

@@ -67,11 +67,11 @@ export default function PautasPage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-          <ClipboardCheck size={20} /> Pautas de Inspección
+          <ClipboardCheck size={20} /> Planificador de Rutas
         </h1>
         {!esInspector && (
           <Button size="sm" onClick={() => navigate('/admin/pautas/nueva')}>
-            <PlusCircle size={15} /> Nueva Pauta
+            <PlusCircle size={15} /> Nueva Ruta
           </Button>
         )}
       </div>
@@ -170,7 +170,7 @@ export default function PautasPage() {
                         <button
                           onClick={e => { e.stopPropagation(); setPautaAEliminar(p) }}
                           className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar pauta"
+                          title="Eliminar ruta"
                         >
                           <Trash2 size={15} />
                         </button>
@@ -187,7 +187,7 @@ export default function PautasPage() {
               {pautas.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
-                    No hay pautas {tab === 'activas' ? 'activas' : 'inactivas'}
+                    No hay rutas {tab === 'activas' ? 'activas' : 'inactivas'}
                   </td>
                 </tr>
               )}
@@ -197,17 +197,17 @@ export default function PautasPage() {
       )}
 
       {/* Modal gestionar pauta */}
-      <Modal open={!!pautaAEliminar} onClose={cerrarModal} title="Gestionar pauta">
+      <Modal open={!!pautaAEliminar} onClose={cerrarModal} title="Gestionar ruta">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Pauta: <span className="font-semibold text-gray-800">"{pautaAEliminar?.nombre}"</span>
+            Ruta: <span className="font-semibold text-gray-800">"{pautaAEliminar?.nombre}"</span>
           </p>
 
           {(pautaAEliminar?._count?.ejecuciones ?? 0) === 0 ? (
             /* Sin historial — solo eliminar */
             <>
               <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 text-sm text-red-700">
-                Esta acción es irreversible. Se eliminarán la pauta y todos sus componentes configurados.
+                Esta acción es irreversible. Se eliminarán la ruta y todos sus componentes configurados.
               </div>
               {eliminar.error && <p className="text-xs text-red-500">{eliminar.error?.response?.data?.message || 'Error al eliminar'}</p>}
               <div className="flex gap-3">
@@ -221,7 +221,7 @@ export default function PautasPage() {
             /* Con historial — mostrar las dos opciones */
             <>
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-sm text-amber-700">
-                Esta pauta tiene <strong>{pautaAEliminar?._count?.ejecuciones} ejecución(es)</strong> registradas.
+                Esta ruta tiene <strong>{pautaAEliminar?._count?.ejecuciones} ejecución(es)</strong> registradas.
               </div>
               <div className="space-y-2">
                 {/* Opción 1: Desactivar */}
@@ -230,9 +230,9 @@ export default function PautasPage() {
                   disabled={desactivar.isPending}
                   className="w-full text-left border border-gray-200 rounded-xl px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50"
                 >
-                  <p className="text-sm font-semibold text-gray-800">Desactivar pauta</p>
+                  <p className="text-sm font-semibold text-gray-800">Desactivar ruta</p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    La pauta deja de estar disponible. El historial de ejecuciones se conserva. Las rondas activas se cierran automáticamente.
+                    La ruta deja de estar disponible. El historial de ejecuciones se conserva. Las rondas activas se cierran automáticamente.
                   </p>
                 </button>
                 {/* Opción 2: Eliminar definitivo */}
@@ -242,7 +242,7 @@ export default function PautasPage() {
                 >
                   <p className="text-sm font-semibold text-red-600">Eliminar definitivamente</p>
                   <p className="text-xs text-red-400 mt-0.5">
-                    Se borra la pauta y todo su historial de ejecuciones. Esta acción no se puede deshacer.
+                    Se borra la ruta y todo su historial de ejecuciones. Esta acción no se puede deshacer.
                   </p>
                 </button>
               </div>
@@ -258,7 +258,7 @@ export default function PautasPage() {
                   <p className="font-semibold">¿Estás seguro?</p>
                   <p>Se eliminarán permanentemente:</p>
                   <ul className="list-disc list-inside text-xs space-y-0.5 text-red-600">
-                    <li>La pauta y sus componentes configurados</li>
+                    <li>La ruta y sus componentes configurados</li>
                     <li><strong>{pautaAEliminar?._count?.ejecuciones} ejecución(es)</strong> y todos sus registros de inspección</li>
                     <li>Fotos, checklists y observaciones asociadas</li>
                   </ul>
