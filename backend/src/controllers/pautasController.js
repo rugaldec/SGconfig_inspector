@@ -103,6 +103,11 @@ async function listar(req, res) {
         zona_funcional: { select: { id: true, codigo: true, descripcion: true } },
         creado_por: { select: { id: true, nombre: true } },
         _count: { select: { ubts: true, ejecuciones: true } },
+        ejecuciones: {
+          orderBy: { created_at: 'desc' },
+          take: 1,
+          select: { frecuencia_tipo: true, relanzamiento_auto: true, estado: true },
+        },
       },
       orderBy: { created_at: 'desc' },
       skip: (Number(page) - 1) * Number(limit),

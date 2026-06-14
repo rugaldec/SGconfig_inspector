@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, Trash2, ChevronUp, ChevronDown, ClipboardList, Upload, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, ChevronUp, ChevronDown, ClipboardList, Upload, AlertCircle, CheckCircle2, Copy } from 'lucide-react'
 import { usePlantillas, useCrearPlantilla, useActualizarPlantilla, useEliminarPlantilla } from '../hooks/usePlantillas'
 import { plantillasApi } from '../api'
 import { useDisciplinas } from '../../disciplinas/hooks/useDisciplinas'
@@ -108,6 +108,8 @@ export default function PlantillasPage() {
   const [importFeedback, setImportFeedback] = useState(null)  // { ok, msg }
   const importRef = useRef(null)
 
+  const [copiando, setCopiando] = useState(null) // id de plantilla que se está copiando
+
   const { data: plantillas, isLoading } = usePlantillas()
   const { data: disciplinas } = useDisciplinas()
   const crear = useCrearPlantilla()
@@ -137,6 +139,29 @@ export default function PlantillasPage() {
   }
 
   function cerrar() { setModal(false); crear.reset(); actualizar.reset(); setImportFeedback(null) }
+
+  async function copiar(p) {
+    setCopiando(p.id)
+    try {
+      const detalle = await plantillasApi.detalle(p.id)
+      const payload = {
+        nombre: `Copia de ${p.nombre}`,
+        descripcion: p.descripcion ?? '',
+        disciplina_id: p.disciplina_id,
+        campos: (detalle.campos ?? []).map((c, i) => ({
+          etiqueta: c.etiqueta,
+          tipo: c.tipo,
+          orden: i + 1,
+          es_obligatorio: c.es_obligatorio,
+          unidad_medida: c.unidad_medida ?? null,
+        })),
+      }
+      await crear.mutateAsync(payload)
+    } finally {
+      setCopiando(null)
+      crear.reset()
+    }
+  }
 
   function onImportCSV(e) {
     const file = e.target.files?.[0]
@@ -201,15 +226,15 @@ export default function PlantillasPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-xl font-bold text-gray-800">Plantillas de Verificación</h1>
-        <Button size="sm" onClick={abrirNueva}><Plus size={15} /> Nueva Plantilla</Button>
+        <h1 className="text-xl font-bold text-gray-800">Check Lists</h1>
+        <Button size="sm" onClick={abrirNueva}><Plus size={15} /> Nuevo Check List</Button>
       </div>
 
       {!plantillas?.length ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
           <ClipboardList size={40} className="text-gray-300" />
           <p className="font-medium">No hay plantillas creadas</p>
-          <p className="text-sm">Crea plantillas para agregar checklists a tus pautas de inspección</p>
+          <p className="text-sm">Crea check lists para agregar a tus rutas de inspección</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden">
@@ -237,7 +262,18 @@ export default function PlantillasPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => abrirEditar(p)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => abrirEditar(p)} className="text-xs text-blue-600 hover:underline">Editar</button>
+                      <button
+                        onClick={() => copiar(p)}
+                        disabled={copiando === p.id}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 disabled:opacity-50 transition-colors"
+                        title="Copiar check list"
+                      >
+                        <Copy size={13} />
+                        {copiando === p.id ? 'Copiando…' : 'Copiar'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -246,7 +282,7 @@ export default function PlantillasPage() {
         </div>
       )}
 
-      <Modal open={modal} onClose={cerrar} title={editando ? 'Editar Plantilla' : 'Nueva Plantilla de Verificación'}>
+      <Modal open={modal} onClose={cerrar} title={editando ? 'Editar Check List' : 'Nuevo Check List'}>
         <form onSubmit={onSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Nombre</label>
@@ -331,7 +367,7 @@ Observaciones,TEXTO,false`}</pre>
           )}
 
           <Button type="submit" size="full" loading={crear.isPending || actualizar.isPending}>
-            {editando ? 'Guardar Cambios' : 'Crear Plantilla'}
+            {editando ? 'Guardar Cambios' : 'Crear Check List'}
           </Button>
         </form>
       </Modal>

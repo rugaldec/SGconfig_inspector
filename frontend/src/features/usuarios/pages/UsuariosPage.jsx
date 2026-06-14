@@ -11,7 +11,7 @@ import Modal from '../../../shared/components/ui/Modal'
 import Button from '../../../shared/components/ui/Button'
 import Input from '../../../shared/components/ui/Input'
 import Spinner from '../../../shared/components/ui/Spinner'
-import { UserPlus, KeyRound, Camera } from 'lucide-react'
+import { UserPlus, KeyRound, Camera, Search } from 'lucide-react'
 import { comprimirImagen } from '../../../shared/utils/comprimirImagen'
 
 const PASSWORD_HINT = 'Mínimo 8 caracteres, una mayúscula, un número y un carácter especial (ej: !, @, #)'
@@ -120,6 +120,8 @@ export default function UsuariosPage() {
   const [modalPwd, setModalPwd]     = useState(false)
   const [usuarioPwd, setUsuarioPwd] = useState(null)
   const [tab, setTab]               = useState('activos')
+  const [busqueda, setBusqueda]     = useState('')
+  const [filtroDisciplina, setFiltroDisciplina] = useState('')
   const [disciplinasSeleccionadas, setDisciplinasSeleccionadas] = useState([])
   const fileRef = useRef(null)
 
@@ -223,7 +225,15 @@ export default function UsuariosPage() {
 
   const activos   = usuarios?.filter(u => u.activo)  ?? []
   const inactivos = usuarios?.filter(u => !u.activo) ?? []
-  const lista     = tab === 'activos' ? activos : inactivos
+
+  const listaBase = tab === 'activos' ? activos : inactivos
+  const lista = listaBase.filter(u => {
+    const q = busqueda.toLowerCase()
+    const matchBusqueda = !q || u.nombre?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)
+    const matchDisciplina = !filtroDisciplina ||
+      u.disciplinas?.some(d => (d.disciplina_id ?? d.id) === filtroDisciplina)
+    return matchBusqueda && matchDisciplina
+  })
 
   return (
     <div>
@@ -259,6 +269,30 @@ export default function UsuariosPage() {
         ))}
       </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o email…"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <select
+          value={filtroDisciplina}
+          onChange={e => setFiltroDisciplina(e.target.value)}
+          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Todas las disciplinas</option>
+          {disciplinas?.map(d => (
+            <option key={d.id} value={d.id}>{d.nombre}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
@@ -274,7 +308,7 @@ export default function UsuariosPage() {
             {lista.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
-                  No hay usuarios {tab === 'activos' ? 'activos' : 'inactivos'}
+                  {busqueda || filtroDisciplina ? 'No hay usuarios que coincidan con los filtros' : `No hay usuarios ${tab === 'activos' ? 'activos' : 'inactivos'}`}
                 </td>
               </tr>
             )}

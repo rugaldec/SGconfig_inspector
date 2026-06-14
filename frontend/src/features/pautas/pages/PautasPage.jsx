@@ -8,6 +8,24 @@ import Button from '../../../shared/components/ui/Button'
 import Modal from '../../../shared/components/ui/Modal'
 import Spinner from '../../../shared/components/ui/Spinner'
 
+const FRECUENCIA_LABELS = {
+  DIARIA: 'Diaria',
+  SEMANAL: 'Semanal',
+  QUINCENAL: 'Quincenal',
+  MENSUAL: 'Mensual',
+  PERSONALIZADA: 'Personalizada',
+}
+
+function FrecuenciaBadge({ pauta }) {
+  const ultima = pauta.ejecuciones?.[0]
+  if (!ultima) return <span className="text-xs text-gray-400">Sin ejecuciones</span>
+  if (!ultima.relanzamiento_auto) {
+    return <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">Manual</span>
+  }
+  const label = FRECUENCIA_LABELS[ultima.frecuencia_tipo] ?? ultima.frecuencia_tipo
+  return <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">{label}</span>
+}
+
 export default function PautasPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -124,7 +142,7 @@ export default function PautasPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['foto', 'Nombre', 'Disciplina', 'UBTs', 'Ejecuciones', 'acciones'].map(h => (
+                {['foto', 'Nombre', 'Disciplina', 'UBTs', 'Frecuencia', 'Ejecuciones', 'acciones'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     {h === 'foto' || h === 'acciones' ? '' : h}
                   </th>
@@ -162,6 +180,9 @@ export default function PautasPage() {
                     {p._count?.ubts ?? 0}
                   </td>
                   <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
+                    <FrecuenciaBadge pauta={p} />
+                  </td>
+                  <td className="px-4 py-3 cursor-pointer" onClick={() => navigate(`/admin/pautas/${p.id}`)}>
                     {p._count?.ejecuciones ?? 0}
                   </td>
                   <td className="px-4 py-3">
@@ -186,7 +207,7 @@ export default function PautasPage() {
               ))}
               {pautas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No hay rutas {tab === 'activas' ? 'activas' : 'inactivas'}
                   </td>
                 </tr>
