@@ -5,7 +5,7 @@ import { useArbolUbicaciones } from '../ubicaciones/hooks/useUbicaciones'
 import { ESTADO_CONFIG, CRITICIDAD_CONFIG } from '../hallazgos/estadoMachine'
 import ContadorEstado from './components/ContadorEstado'
 import Spinner from '../../shared/components/ui/Spinner'
-import { Trophy, MapPin, TrendingUp, ClipboardCheck, Activity, AlertTriangle, CheckCircle2, BarChart2, Layers } from 'lucide-react'
+import { Trophy, MapPin, TrendingUp, ClipboardCheck, Activity, AlertTriangle, CheckCircle2, BarChart2, Layers, ChevronDown, ChevronRight, Building2 } from 'lucide-react'
 
 const ESTADO_COLORES = {
   ABIERTO:          'bg-blue-50 border-blue-200 text-blue-800',
@@ -134,6 +134,136 @@ function FilaRanking({ item, idx, maxTotal, barColor }) {
   )
 }
 
+// ── Resumen ubicaciones ─────────────────────────────────────────────────────
+function BaraUbi({ activos, total, color }) {
+  const pct = total > 0 ? Math.round((activos / total) * 100) : 0
+  return (
+    <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-gray-400 w-8 text-right flex-shrink-0">{pct}%</span>
+    </div>
+  )
+}
+
+function ResumenUbicaciones({ datos = [], navigate, ubicacionParam }) {
+  const [abiertos, setAbiertos] = useState({})
+  const totalGlobal = datos.reduce((s, p) => s + p.total, 0)
+
+  function toggle(id) {
+    setAbiertos(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  if (!datos.length) return (
+    <div className="text-center py-8 text-gray-400">
+      <Building2 size={32} className="mx-auto mb-2 text-gray-200" />
+      <p className="text-sm">Sin datos de ubicaciones</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-2">
+      {datos.map(planta => {
+        const abierto = abiertos[planta.id]
+        const pctActivos = planta.total > 0 ? Math.round((planta.activos / planta.total) * 100) : 0
+        const pctPlanta  = totalGlobal > 0 ? Math.round((planta.total / totalGlobal) * 100) : 0
+
+        return (
+          <div key={planta.id} className="border border-gray-100 rounded-xl overflow-hidden">
+            {/* Fila planta (nivel 1) */}
+            <button
+              onClick={() => toggle(planta.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+            >
+              {abierto ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{planta.codigo}</span>
+                  <span className="text-sm font-semibold text-gray-800 truncate">{planta.descripcion}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <BaraUbi activos={planta.activos} total={planta.total} color="bg-blue-400" />
+                </div>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <p className="text-lg font-bold text-gray-800">{planta.total}</p>
+                <p className="text-xs text-gray-400">{pctPlanta}% del total</p>
+              </div>
+              {planta.activos > 0 && (
+                <span className="flex-shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                  {planta.activos} activos
+                </span>
+              )}
+            </button>
+
+            {/* Áreas (nivel 2) */}
+            {abierto && (
+              <div className="divide-y divide-gray-50">
+                {planta.areas.map(area => {
+                  const areaKey = `${planta.id}-${area.id}`
+                  const areaAbierta = abiertos[areaKey]
+                  return (
+                    <div key={area.id}>
+                      <button
+                        onClick={() => toggle(areaKey)}
+                        className="w-full flex items-center gap-3 px-6 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        {areaAbierta ? <ChevronDown size={13} className="text-gray-300 flex-shrink-0" /> : <ChevronRight size={13} className="text-gray-300 flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-400 font-medium">{area.codigo}</span>
+                            <span className="text-sm text-gray-700 truncate">{area.descripcion}</span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1">
+                            <BaraUbi activos={area.activos} total={area.total} color="bg-indigo-300" />
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0 flex items-center gap-3">
+                          {area.activos > 0 && (
+                            <span className="text-xs text-amber-600 font-medium">{area.activos} activos</span>
+                          )}
+                          <span className="text-sm font-bold text-gray-700 w-6 text-right">{area.total}</span>
+                        </div>
+                      </button>
+
+                      {/* Activos nivel 3 */}
+                      {areaAbierta && (
+                        <div className="bg-gray-50 border-t border-gray-100">
+                          {area.activosN3.map(activo => (
+                            <div
+                              key={activo.id}
+                              className="flex items-center gap-3 px-10 py-2 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-white transition-colors"
+                              onClick={() => navigate(`/supervisor/hallazgos?ubicacion_id=${activo.id}${ubicacionParam ? '&' + ubicacionParam.slice(1) : ''}`)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">{activo.codigo}</span>
+                                  <span className="text-xs text-gray-600 truncate">{activo.descripcion}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                {activo.activos > 0 && (
+                                  <span className="text-xs text-amber-600">{activo.activos} activos</span>
+                                )}
+                                <span className="text-xs font-bold text-gray-600 w-5 text-right">{activo.total}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Dashboard principal ─────────────────────────────────────────────────────
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -165,7 +295,8 @@ export default function DashboardPage() {
   const porCategoria    = stats?.porCategoria ?? {}
   const rankingInspectores   = stats?.rankingInspectores ?? []
   const rankingAreas         = stats?.rankingAreas ?? []
-  const areasConInspecciones = stats?.areasConInspecciones ?? []
+  const areasConInspecciones  = stats?.areasConInspecciones ?? []
+  const resumenUbicaciones    = stats?.resumenUbicaciones ?? []
   const hallazgosPorDia      = stats?.hallazgosPorDia ?? []
 
   // KPIs calculados
@@ -334,6 +465,15 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Resumen por Ubicaciones Técnicas */}
+      <div className="bg-white rounded-xl border p-5">
+        <h2 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+          <Building2 size={16} className="text-gray-400" /> Resumen por Ubicación Técnica
+          <span className="text-xs text-gray-400 font-normal">Planta → Área → Activo</span>
+        </h2>
+        <ResumenUbicaciones datos={resumenUbicaciones} navigate={navigate} ubicacionParam={ubicacionParam} />
       </div>
 
       {/* Cobertura de inspecciones */}

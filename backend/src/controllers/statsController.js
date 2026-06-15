@@ -57,20 +57,24 @@ async function stats(req, res) {
       where: { ...where, fecha_creacion: { gte: hace30 } },
       select: { fecha_creacion: true },
     }),
-    // Hallazgos con jerarquía completa para ranking de áreas
+    // Hallazgos con jerarquía completa niveles 1-4
     prisma.hallazgo.findMany({
       where,
       select: {
         estado: true,
+        criticidad: true,
         ubicacion_tecnica: {
           select: {
-            id: true, codigo: true, nivel: true,
+            id: true, codigo: true, descripcion: true, nivel: true,
             padre: {
               select: {
-                id: true, codigo: true, nivel: true,
+                id: true, codigo: true, descripcion: true, nivel: true,
                 padre: {
                   select: {
                     id: true, codigo: true, descripcion: true, nivel: true,
+                    padre: {
+                      select: { id: true, codigo: true, descripcion: true, nivel: true }
+                    }
                   }
                 }
               }
@@ -151,6 +155,50 @@ async function stats(req, res) {
     .sort((a, b) => b.total - a.total)
     .slice(0, 5)
 
+  // Resumen jerárquico nivel 1 → 2 → 3
+  const plantas = {}
+  for (const h of hallazgosConUbicacion) {
+    const n4 = h.ubicacion_tecnica
+    const n3 = n4?.padre
+    const n2 = n3?.padre
+    const n1 = n2?.padre
+    if (!n1 || n1.nivel !== 1) continue
+
+    const activo = !['CERRADO', 'RECHAZADO'].includes(h.estado)
+
+    if (!plantas[n1.id]) {
+      plantas[n1.id] = { id: n1.id, codigo: n1.codigo, descripcion: n1.descripcion, total: 0, activos: 0, areas: {} }
+    }
+    plantas[n1.id].total++
+    if (activo) plantas[n1.id].activos++
+
+    const planta = plantas[n1.id]
+    if (!planta.areas[n2.id]) {
+      planta.areas[n2.id] = { id: n2.id, codigo: n2.codigo, descripcion: n2.descripcion, total: 0, activos: 0, activosN3: {} }
+    }
+    planta.areas[n2.id].total++
+    if (activo) planta.areas[n2.id].activos++
+
+    const area = planta.areas[n2.id]
+    if (!area.activosN3[n3.id]) {
+      area.activosN3[n3.id] = { id: n3.id, codigo: n3.codigo, descripcion: n3.descripcion, total: 0, activos: 0 }
+    }
+    area.activosN3[n3.id].total++
+    if (activo) area.activosN3[n3.id].activos++
+  }
+
+  const resumenUbicaciones = Object.values(plantas)
+    .sort((a, b) => b.total - a.total)
+    .map(p => ({
+      ...p,
+      areas: Object.values(p.areas)
+        .sort((a, b) => b.total - a.total)
+        .map(a => ({
+          ...a,
+          activosN3: Object.values(a.activosN3).sort((x, y) => y.total - x.total),
+        })),
+    }))
+
   // Agrupar ejecuciones por área (nivel 2)
   const ahora = new Date()
   const areaInsp = {}
@@ -205,6 +253,7 @@ async function stats(req, res) {
     rankingAreas,
     areasConInspecciones,
     hallazgosPorDia,
+    resumenUbicaciones,
   })
 }
 
