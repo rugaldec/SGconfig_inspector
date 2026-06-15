@@ -104,6 +104,7 @@ async function listar(req, res) {
         creado_por: { select: { id: true, nombre: true } },
         _count: { select: { ubts: true, ejecuciones: true } },
         ejecuciones: {
+          where: { frecuencia_tipo: { not: null } },
           orderBy: { created_at: 'desc' },
           take: 1,
           select: { frecuencia_tipo: true, relanzamiento_auto: true, estado: true },
